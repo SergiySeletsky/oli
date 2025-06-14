@@ -198,6 +198,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added tool commands `clear-completed-tools`, `tool-duration`, `tools-by-status`,
   `tool-exists`, `latest-tool`, `tool-age`, `tools-recent`, `running-tool-count`,
   `tools-by-name`, and `tool-count-by-name`.
+- Added task utilities `task-summary`, `delete-tasks-by-status`, and `next-task`.
+- Added memory helpers `list-memory-files` and `memory-keywords`.
+- Added conversation exporter `conversation-to-md`.
+- Added tool helpers `open-latest-tool` and `tool-log`.
+- Added notes checker `task-notes-exists` and log viewer `log-errors`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
