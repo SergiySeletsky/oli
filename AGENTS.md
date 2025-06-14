@@ -245,6 +245,13 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Fixed build by making helper methods public and updating async handlers.
 - Restored missing conversation management commands and cleaned duplicate code.
 - Simplified `LspCommands` and ensured .NET project builds successfully.
+- Simplified `LspCommands` and ensured .NET project builds successfully.
+- Implemented conversation utilities `conversation-first`, `conversation-range`,
+  `conversation-info`, `list-conversation`, `conversation-at`,
+  `delete-conversation-before`, `delete-conversation-after`,
+  `delete-conversation-contains`, `reverse-conversation`, and `conversation-diff`.
+- Added `tasks-by-priority`, `open-latest-backup`, `rpc-notify-file`, and
+  `memory-dedupe-lines` commands.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.

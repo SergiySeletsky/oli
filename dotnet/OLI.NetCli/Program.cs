@@ -899,6 +899,23 @@ class Program
             await Task.CompletedTask;
         }, rpcNotifyJsonOpt, rpcNotifyTypeOpt);
 
+        var rpcNotifyFileOpt = new Option<string>("--path") { IsRequired = true };
+        var rpcNotifyFileTypeOpt = new Option<string>("--type", () => "manual");
+        var rpcNotifyFileCmd = new Command("rpc-notify-file", "Send JSON event from file") { rpcNotifyFileOpt, rpcNotifyFileTypeOpt };
+        rpcNotifyFileCmd.SetHandler(async (string path, string type) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = File.ReadAllText(path);
+            try
+            {
+                var obj = JsonSerializer.Deserialize<object>(json);
+                if (obj != null) RpcServer.Notify(obj, type);
+                Console.WriteLine("sent");
+            }
+            catch { Console.WriteLine("invalid json"); }
+            await Task.CompletedTask;
+        }, rpcNotifyFileOpt, rpcNotifyFileTypeOpt);
+
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -915,7 +932,8 @@ class Program
             rpcStartCmd,
             rpcStopCmd,
             rpcStatusCmd,
-            rpcNotifyCmd
+            rpcNotifyCmd,
+            rpcNotifyFileCmd
         };
 
         LspCommands.Register(root);

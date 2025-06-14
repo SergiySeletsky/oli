@@ -779,8 +779,29 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // open-latest-backup
+        var openLatestBackupCmd = new Command("open-latest-backup", "Open newest backup file");
+        openLatestBackupCmd.SetHandler(async () =>
+        {
+            var path = BackupUtils.LatestBackup();
+            if (path != null && File.Exists(path))
+            {
+                var psi = new ProcessStartInfo(path) { UseShellExecute = true };
+                Process.Start(psi);
+            }
+            else Console.WriteLine("no backup");
+            await Task.CompletedTask;
+        });
+
         // tasks-by-priority
         var tasksByPriorityCmd = new Command("tasks-by-priority", "List tasks sorted by priority");
+        tasksByPriorityCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.OrderByDescending(t => t.Priority))
+                Console.WriteLine($"{t.Priority}: {t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
 
         // conversation-insert
         var insertIdxOpt = new Option<int>("--index") { IsRequired = true };
@@ -853,6 +874,119 @@ public static class AdditionalCommands
             Console.WriteLine($"user:{user} assistant:{assistant} system:{system}");
             await Task.CompletedTask;
         });
+
+        // conversation-first
+        var conversationFirstCmd = new Command("conversation-first", "Show the first message");
+        conversationFirstCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Conversation.FirstOrDefault() ?? "none");
+            await Task.CompletedTask;
+        });
+
+        // conversation-range
+        var rangeStartArg = new Argument<int>("start");
+        var rangeEndArg = new Argument<int>("end");
+        var conversationRangeCmd = new Command("conversation-range", "List messages in range") { rangeStartArg, rangeEndArg };
+        conversationRangeCmd.SetHandler(async (int start, int end) =>
+        {
+            var state = Program.LoadState();
+            if (start < 0 || end < start || end >= state.Conversation.Count) { Console.WriteLine("invalid range"); return; }
+            for (int i = start; i <= end; i++) Console.WriteLine(state.Conversation[i]);
+            await Task.CompletedTask;
+        }, rangeStartArg, rangeEndArg);
+
+        // conversation-info
+        var conversationInfoCmd = new Command("conversation-info", "Show message and char counts");
+        conversationInfoCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var chars = state.Conversation.Sum(m => m.Length);
+            Console.WriteLine($"messages:{state.Conversation.Count} chars:{chars}");
+            await Task.CompletedTask;
+        });
+
+        // list-conversation
+        var listConversationCmd = new Command("list-conversation", "List conversation with indexes");
+        listConversationCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            for (int i = 0; i < state.Conversation.Count; i++) Console.WriteLine($"{i}: {state.Conversation[i]}");
+            await Task.CompletedTask;
+        });
+
+        // conversation-at
+        var atIndexArg = new Argument<int>("index");
+        var conversationAtCmd = new Command("conversation-at", "Show message at index") { atIndexArg };
+        conversationAtCmd.SetHandler(async (int index) =>
+        {
+            var state = Program.LoadState();
+            if (index < 0 || index >= state.Conversation.Count) { Console.WriteLine("invalid index"); return; }
+            Console.WriteLine(state.Conversation[index]);
+            await Task.CompletedTask;
+        }, atIndexArg);
+
+        // delete-conversation-before
+        var beforeArg = new Argument<int>("index");
+        var deleteBeforeCmd = new Command("delete-conversation-before", "Remove messages before index") { beforeArg };
+        deleteBeforeCmd.SetHandler(async (int index) =>
+        {
+            var state = Program.LoadState();
+            if (index < 0 || index >= state.Conversation.Count) { Console.WriteLine("invalid index"); return; }
+            state.Conversation = state.Conversation.Skip(index).ToList();
+            Program.SaveState(state);
+            Console.WriteLine("removed");
+            await Task.CompletedTask;
+        }, beforeArg);
+
+        // delete-conversation-after
+        var afterArg = new Argument<int>("index");
+        var deleteAfterCmd = new Command("delete-conversation-after", "Remove messages after index") { afterArg };
+        deleteAfterCmd.SetHandler(async (int index) =>
+        {
+            var state = Program.LoadState();
+            if (index < -1 || index >= state.Conversation.Count) { Console.WriteLine("invalid index"); return; }
+            state.Conversation = state.Conversation.Take(index + 1).ToList();
+            Program.SaveState(state);
+            Console.WriteLine("truncated");
+            await Task.CompletedTask;
+        }, afterArg);
+
+        // delete-conversation-contains
+        var deleteContainsArg = new Argument<string>("text");
+        var deleteContainsCmd = new Command("delete-conversation-contains", "Remove messages containing text") { deleteContainsArg };
+        deleteContainsCmd.SetHandler(async (string text) =>
+        {
+            var state = Program.LoadState();
+            int before = state.Conversation.Count;
+            state.Conversation = state.Conversation.Where(m => !m.Contains(text, StringComparison.OrdinalIgnoreCase)).ToList();
+            Program.SaveState(state);
+            Console.WriteLine(before - state.Conversation.Count);
+            await Task.CompletedTask;
+        }, deleteContainsArg);
+
+        // reverse-conversation
+        var reverseConvCmd = new Command("reverse-conversation", "Reverse message order");
+        reverseConvCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.Conversation.Reverse();
+            Program.SaveState(state);
+            Console.WriteLine("reversed");
+            await Task.CompletedTask;
+        });
+
+        // conversation-diff
+        var diffFileArg = new Argument<string>("path");
+        var conversationDiffCmd = new Command("conversation-diff", "Diff conversation with file") { diffFileArg };
+        conversationDiffCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var state = Program.LoadState();
+            var diff = Program.GenerateDiff(File.ReadAllText(path), string.Join("\n", state.Conversation));
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, diffFileArg);
 
         // memory-sort
         var memorySortCmd = new Command("sort-memory", "Sort memory sections alphabetically");
@@ -1313,7 +1447,18 @@ public static class AdditionalCommands
         root.Add(restoreLspCmd);
         root.Add(backupAllCmd);
         root.Add(listBackupsCmd);
+        root.Add(openLatestBackupCmd);
         root.Add(tasksByPriorityCmd);
+        root.Add(conversationFirstCmd);
+        root.Add(conversationRangeCmd);
+        root.Add(conversationInfoCmd);
+        root.Add(listConversationCmd);
+        root.Add(conversationAtCmd);
+        root.Add(deleteBeforeCmd);
+        root.Add(deleteAfterCmd);
+        root.Add(deleteContainsCmd);
+        root.Add(reverseConvCmd);
+        root.Add(conversationDiffCmd);
         root.Add(convReplaceCmd);
         root.Add(convMoveCmd);
         root.Add(convRoleCountCmd);
