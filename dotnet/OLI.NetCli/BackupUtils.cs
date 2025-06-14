@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 
 public static class BackupUtils
 {
@@ -17,5 +18,13 @@ public static class BackupUtils
     public static void RestoreFile(string backupPath, string targetPath)
     {
         File.Copy(backupPath, targetPath, true);
+    }
+
+    public static string? LatestBackup()
+    {
+        if (!Directory.Exists(BackupDir)) return null;
+        return Directory.GetFiles(BackupDir)
+            .OrderByDescending(f => f)
+            .FirstOrDefault();
     }
 }

@@ -11,4 +11,5 @@ public class TaskRecord
     public int InputTokens { get; set; }
     public int OutputTokens { get; set; }
     public int Priority { get; set; } = 0;
+    public string Notes { get; set; } = string.Empty;
 }

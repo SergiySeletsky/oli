@@ -1641,6 +1641,146 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // tasks-this-month
+        var tasksMonthCmd = new Command("tasks-this-month", "List tasks created this month");
+        tasksMonthCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var now = DateTime.UtcNow;
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt.Month == now.Month && t.CreatedAt.Year == now.Year))
+                Console.WriteLine($"{t.Id} {t.Description} {t.CreatedAt:u}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-due-next-week
+        var tasksDueNextCmd = new Command("tasks-due-next-week", "List tasks due within the next 7 days");
+        tasksDueNextCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var start = DateTime.UtcNow.Date.AddDays(1);
+            var end = start.AddDays(7);
+            foreach (var t in state.Tasks.Where(t => t.DueDate >= start && t.DueDate <= end))
+                Console.WriteLine($"{t.Id} {t.Description} {t.DueDate:u}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-paused
+        var tasksPausedCmd = new Command("tasks-paused", "List paused tasks");
+        tasksPausedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "paused"))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // pause-task
+        var pauseTaskId = new Argument<string>("id");
+        var pauseTaskCmd = new Command("pause-task", "Pause a task") { pauseTaskId };
+        pauseTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Status = "paused";
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("paused");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, pauseTaskId);
+
+        // resume-task
+        var resumeTaskId = new Argument<string>("id");
+        var resumeTaskCmd = new Command("resume-task", "Resume a paused task") { resumeTaskId };
+        resumeTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Status = "in-progress";
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("resumed");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, resumeTaskId);
+
+        // set-task-notes
+        var notesIdArg = new Argument<string>("id");
+        var notesTextArg = new Argument<string>("text");
+        var setNotesCmd = new Command("set-task-notes", "Set notes for a task") { notesIdArg, notesTextArg };
+        setNotesCmd.SetHandler(async (string id, string text) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Notes = text;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("notes set");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, notesIdArg, notesTextArg);
+
+        // show-task-notes
+        var showNotesId = new Argument<string>("id");
+        var showNotesCmd = new Command("show-task-notes", "Display task notes") { showNotesId };
+        showNotesCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            Console.WriteLine(task?.Notes ?? "not found");
+            await Task.CompletedTask;
+        }, showNotesId);
+
+        // append-task-notes
+        var appendNotesId = new Argument<string>("id");
+        var appendNotesText = new Argument<string>("text");
+        var appendNotesCmd = new Command("append-task-notes", "Append to task notes") { appendNotesId, appendNotesText };
+        appendNotesCmd.SetHandler(async (string id, string text) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Notes += text;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("appended");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, appendNotesId, appendNotesText);
+
+        // conversation-diff
+        var convDiffArg = new Argument<string>("file");
+        var convDiffCmd = new Command("conversation-diff", "Diff current conversation with file") { convDiffArg };
+        convDiffCmd.SetHandler(async (string file) =>
+        {
+            if (!File.Exists(file)) { Console.WriteLine("file not found"); return; }
+            var state = Program.LoadState();
+            var other = JsonSerializer.Deserialize<List<string>>(await File.ReadAllTextAsync(file)) ?? new();
+            var diff = Program.GenerateDiff(string.Join("\n", state.Conversation), string.Join("\n", other));
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, convDiffArg);
+
+        // latest-backup
+        var latestBackupCmd = new Command("latest-backup", "Show most recent backup file path");
+        latestBackupCmd.SetHandler(async () =>
+        {
+            var path = BackupUtils.LatestBackup();
+            Console.WriteLine(path ?? "none");
+            await Task.CompletedTask;
+        });
+
         // export-tasks-md
         var exportMdArg = new Argument<string>("path");
         var exportMdCmd = new Command("export-tasks-md", "Export tasks to markdown") { exportMdArg };
@@ -1746,6 +1886,16 @@ public static class AdditionalCommands
         root.Add(toolProgAllCmd);
         root.Add(tasksTodayCmd);
         root.Add(tasksWeekCmd);
+        root.Add(tasksMonthCmd);
+        root.Add(tasksDueNextCmd);
+        root.Add(tasksPausedCmd);
+        root.Add(pauseTaskCmd);
+        root.Add(resumeTaskCmd);
+        root.Add(setNotesCmd);
+        root.Add(showNotesCmd);
+        root.Add(appendNotesCmd);
+        root.Add(convDiffCmd);
+        root.Add(latestBackupCmd);
         root.Add(exportMdCmd);
         root.Add(sumFileCmd);
         root.Add(sumSecCmd);

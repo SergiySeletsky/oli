@@ -184,6 +184,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added summary helpers `summary-exists` and `append-summary`.
 - Added memory command `memory-section-exists`.
 - Added LSP utilities `export-lsp`, `import-lsp`, and `lsp-count`.
+- Added task commands `tasks-this-month`, `tasks-due-next-week`, and `tasks-paused`.
+- Added task control commands `pause-task` and `resume-task`.
+- Added task notes commands `set-task-notes`, `show-task-notes`, and `append-task-notes`.
+- Added conversation comparison via `conversation-diff` and backup helper `latest-backup`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.
