@@ -803,119 +803,6 @@ class Program
             await Task.CompletedTask;
         }, importTasksPathOpt);
 
-        var clearConvCmd = new Command("clear-conversation", "Clear stored conversation");
-        clearConvCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            state.Conversation.Clear();
-            SaveState(state);
-            Console.WriteLine("Conversation cleared");
-            await Task.CompletedTask;
-        });
-
-        var conversationCmd = new Command("conversation", "Show conversation history");
-        conversationCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.Conversation.Count == 0)
-            {
-                Console.WriteLine("No conversation yet.");
-            }
-            foreach (var m in state.Conversation)
-            {
-                Console.WriteLine(m);
-            }
-            await Task.CompletedTask;
-        });
-
-        var savePathOption = new Option<string>("--path") { IsRequired = true };
-        var saveConvCmd = new Command("save-conversation", "Save conversation to file")
-        {
-            savePathOption
-        };
-        saveConvCmd.SetHandler(async (string path) =>
-        {
-            var state = LoadState();
-            File.WriteAllLines(path, state.Conversation);
-            Console.WriteLine($"Conversation saved to {path}");
-            await Task.CompletedTask;
-        }, savePathOption);
-
-        var exportConvPathOpt = new Option<string>("--path") { IsRequired = true };
-        var exportConvCmd = new Command("export-conversation", "Export conversation to file")
-        {
-            exportConvPathOpt
-        };
-        exportConvCmd.SetHandler(async (string path) =>
-        {
-            var state = LoadState();
-            File.WriteAllLines(path, state.Conversation);
-            Console.WriteLine($"Conversation exported to {path}");
-            await Task.CompletedTask;
-        }, exportConvPathOpt);
-
-        var importConvPathOpt = new Option<string>("--path") { IsRequired = true };
-        var importConvCmd = new Command("import-conversation", "Load conversation from file")
-        {
-            importConvPathOpt
-        };
-        importConvCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            var lines = File.ReadAllLines(path).ToList();
-            var state = LoadState();
-            state.Conversation = lines;
-            AutoCompress(state);
-            SaveState(state);
-            Console.WriteLine("Conversation loaded");
-            await Task.CompletedTask;
-        }, importConvPathOpt);
-
-        var appendConvPathOpt = new Option<string>("--path") { IsRequired = true };
-        var appendConvCmd = new Command("append-conversation", "Append messages from file to conversation")
-        {
-            appendConvPathOpt
-        };
-        appendConvCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            var lines = File.ReadAllLines(path);
-            var state = LoadState();
-            state.Conversation.AddRange(lines);
-            AutoCompress(state);
-            SaveState(state);
-            Console.WriteLine("Conversation updated");
-            await Task.CompletedTask;
-        }, appendConvPathOpt);
-
-        var deleteIndexOpt = new Option<int>("--index") { IsRequired = true };
-        var deleteConvMsgCmd = new Command("delete-conversation-message", "Remove a message by index")
-        {
-            deleteIndexOpt
-        };
-        deleteConvMsgCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.Conversation.Count)
-            {
-                state.Conversation.RemoveAt(index);
-                SaveState(state);
-                Console.WriteLine("Message removed");
-            }
-            else
-            {
-                Console.WriteLine("Invalid index");
-            }
-            await Task.CompletedTask;
-        }, deleteIndexOpt);
 
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
         memoryInfoCmd.SetHandler(async () =>
@@ -1363,173 +1250,6 @@ class Program
             Console.WriteLine(lines.Count - remaining.Count);
             await Task.CompletedTask;
         }, deletePatternOpt);
-        var summarizeCmd = new Command("summarize-conversation", "Summarize stored conversation");
-        summarizeCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.Conversation.Count == 0)
-            {
-                Console.WriteLine("No conversation to summarize");
-                return;
-            }
-
-            var text = string.Join("\n", state.Conversation);
-            string summary;
-            try
-            {
-                summary = await SummarizeAsync(text);
-            }
-            catch
-            {
-                summary = GenerateSummary(text);
-            }
-            state.Conversation.Clear();
-            state.Conversation.Add($"[SUMMARY] {summary}");
-            SaveState(state);
-            Console.WriteLine(summary);
-        });
-
-        var convStatsCmd = new Command("conversation-stats", "Show conversation statistics");
-        convStatsCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            var count = state.Conversation.Count;
-            var chars = state.Conversation.Sum(m => m.Length);
-            Console.WriteLine($"Messages: {count} Characters: {chars}");
-            await Task.CompletedTask;
-        });
-
-        var convCharCountCmd = new Command("conversation-char-count", "Show total character count of conversation");
-        convCharCountCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            var chars = state.Conversation.Sum(m => m.Length);
-            Console.WriteLine(chars);
-            await Task.CompletedTask;
-        });
-
-        var convWordCountCmd = new Command("conversation-word-count", "Show total word count of conversation");
-        convWordCountCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            var words = state.Conversation.SelectMany(m => m.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-            Console.WriteLine(words.Count());
-            await Task.CompletedTask;
-        });
-
-
-        var setAutoCompressOption = new Option<bool>("--enable") { IsRequired = true };
-        var setAutoCompressCmd = new Command("set-auto-compress", "Enable or disable automatic compression") { setAutoCompressOption };
-        setAutoCompressCmd.SetHandler(async (bool enable) =>
-        {
-            var state = LoadState();
-            state.AutoCompress = enable;
-            SaveState(state);
-            Console.WriteLine($"Auto compress set to {enable}");
-            await Task.CompletedTask;
-        }, setAutoCompressOption);
-
-        var threshCharOpt = new Option<int>("--char", () => 4000);
-        var threshMsgOpt = new Option<int>("--messages", () => 50);
-        var setThresholdsCmd = new Command("set-compress-thresholds", "Configure compression thresholds") { threshCharOpt, threshMsgOpt };
-        setThresholdsCmd.SetHandler(async (int ch, int msg) =>
-        {
-            var state = LoadState();
-            state.CompressCharThreshold = ch;
-            state.CompressMessageThreshold = msg;
-            SaveState(state);
-            Console.WriteLine("Thresholds updated");
-            await Task.CompletedTask;
-        }, threshCharOpt, threshMsgOpt);
-
-
-        var cmdOpt = new Option<string>("--cmd") { IsRequired = true };
-        var runCommandCmd = new Command("run-command", "Execute shell command") { cmdOpt };
-        runCommandCmd.SetHandler(async (string cmd) =>
-        {
-            try
-            {
-                var proc = System.Diagnostics.Process.Start("bash", ["-c", cmd]);
-                if (proc != null)
-                {
-                    proc.WaitForExit();
-                    Console.WriteLine(proc.ExitCode);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine($"Error: {e.Message}");
-            }
-            await Task.CompletedTask;
-        }, cmdOpt);
-
-        var rpcStartCmd = new Command("start-rpc", "Start RPC server");
-        rpcStartCmd.SetHandler(() => { RpcServer.Start(); Console.WriteLine("RPC started on http://localhost:5050/"); return Task.CompletedTask; });
-
-        var rpcStopCmd = new Command("stop-rpc", "Stop RPC server");
-        rpcStopCmd.SetHandler(() => { RpcServer.Stop(); Console.WriteLine("RPC stopped"); return Task.CompletedTask; });
-
-        var rpcStatusCmd = new Command("rpc-running", "Is RPC server running?");
-        rpcStatusCmd.SetHandler(() => { Console.WriteLine(RpcServer.IsRunning ? "true" : "false"); return Task.CompletedTask; });
-
-        var notifyOpt = new Option<string>("--json") { IsRequired = true };
-        var rpcNotifyCmd = new Command("rpc-notify", "Send RPC notification") { notifyOpt };
-        rpcNotifyCmd.SetHandler(async (string json) =>
-        {
-            try
-            {
-                var obj = JsonSerializer.Deserialize<object>(json);
-                if (obj != null) RpcServer.Notify(obj);
-                Console.WriteLine("notified");
-            }
-            catch
-            {
-                Console.WriteLine("invalid json");
-            }
-            await Task.CompletedTask;
-        }, notifyOpt);
-
-        var compressConvCmd = new Command("compress-conversation", "Summarize and clear conversation");
-        compressConvCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.Conversation.Count == 0)
-            {
-                Console.WriteLine("No conversation to compress");
-                return;
-            }
-            var text = string.Join("\n", state.Conversation);
-            string summary;
-            try
-            {
-                summary = await SummarizeAsync(text);
-            }
-            catch
-            {
-                summary = GenerateSummary(text);
-            }
-            state.ConversationSummaries.Add(new ConversationSummary
-            {
-                Content = summary,
-                CreatedAt = DateTime.UtcNow,
-                MessagesCount = state.Conversation.Count,
-                OriginalChars = text.Length
-            });
-            state.Conversation.Clear();
-            SaveState(state);
-            Console.WriteLine(summary);
-        });
-
-        var clearHistoryCmd = new Command("clear-history", "Remove conversation and summaries");
-        clearHistoryCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            state.Conversation.Clear();
-            state.ConversationSummaries.Clear();
-            SaveState(state);
-            Console.WriteLine("History cleared");
-            await Task.CompletedTask;
-        });
 
 
 
@@ -1839,13 +1559,9 @@ class Program
         var root = new RootCommand("oli .NET CLI")
         {
             runCmd, agentCmd, agentStatusCmd, setModelCmd, modelsCmd,
-            clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
             sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd, memoryLinesCmd, memoryHeadCmd, memoryTailCmd, insertMemoryCmd, replaceMemoryLinesCmd,
-            summarizeCmd, convStatsCmd,
-            convCharCountCmd, convWordCountCmd, compressConvCmd,
-            clearHistoryCmd,
             setAutoCompressCmd, setThresholdsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
@@ -1858,7 +1574,6 @@ class Program
             listMemorySectionsCmd, tasksPathCmd, conversationPathCmd, summariesPathCmd, toolsPathCmd,
             appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, stateVersionCmd, stateSummaryCmd, stateFilesCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
-            importConvCmd, appendConvCmd, exportConvCmd, deleteConvMsgCmd,
             deleteSummaryRangeCmd,
             setWorkingDirCmd, currentDirCmd,
             runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd
@@ -1867,6 +1582,7 @@ class Program
         LspCommands.Register(root);
         TaskCommands.Register(root);
         ToolCommands.Register(root);
+        ConversationCommands.Register(root);
         AdditionalCommands.Register(root);
         FileCommands.Register(root);
         SummaryCommands.Register(root);

@@ -229,6 +229,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Split task management commands into `TaskCommands.cs` and tool operations into
   `ToolCommands.cs`; registered these modules in `Program.cs` and pruned the
   root command list.
+- Moved conversation commands `clear-conversation`, `conversation`, `save-conversation`, `export-conversation`, `import-conversation`, `append-conversation`, `delete-conversation-message`, `summarize-conversation`, `conversation-stats`, `conversation-char-count`, `conversation-word-count`, `compress-conversation`, and `clear-history` into `ConversationCommands.cs` and registered the module.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
