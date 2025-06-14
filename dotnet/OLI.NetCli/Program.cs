@@ -1146,6 +1146,61 @@ class Program
             await Task.CompletedTask;
         }, exportMemoryPathOpt);
 
+        var linesStartOpt = new Option<int>("--start", () => 1);
+        var linesEndOpt = new Option<int>("--end", () => int.MaxValue);
+        var memoryLinesCmd = new Command("memory-lines", "Show lines from memory file") { linesStartOpt, linesEndOpt };
+        memoryLinesCmd.SetHandler(async (int start, int end) =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            var lines = File.ReadAllLines(MemoryPath);
+            start = Math.Max(1, start);
+            end = Math.Min(lines.Length, end);
+            for (int i = start; i <= end; i++)
+            {
+                Console.WriteLine($"{i}: {lines[i - 1]}");
+            }
+            await Task.CompletedTask;
+        }, linesStartOpt, linesEndOpt);
+
+        var insertIndexOpt = new Option<int>("--index") { IsRequired = true };
+        var insertTextOpt = new Option<string>("--text") { IsRequired = true };
+        var insertMemoryCmd = new Command("insert-memory-lines", "Insert lines into memory file") { insertIndexOpt, insertTextOpt };
+        insertMemoryCmd.SetHandler(async (int index, string text) =>
+        {
+            var lines = File.Exists(MemoryPath) ? File.ReadAllLines(MemoryPath).ToList() : new List<string>();
+            var newLines = text.Split('\n');
+            index = Math.Clamp(index - 1, 0, lines.Count);
+            lines.InsertRange(index, newLines);
+            File.WriteAllLines(MemoryPath, lines);
+            Console.WriteLine("Memory updated");
+            await Task.CompletedTask;
+        }, insertIndexOpt, insertTextOpt);
+
+        var replaceStartOpt = new Option<int>("--start") { IsRequired = true };
+        var replaceEndOpt = new Option<int>("--end") { IsRequired = true };
+        var replaceTextOpt = new Option<string>("--text") { IsRequired = true };
+        var replaceMemoryLinesCmd = new Command("replace-memory-lines", "Replace range of memory lines") { replaceStartOpt, replaceEndOpt, replaceTextOpt };
+        replaceMemoryLinesCmd.SetHandler(async (int start, int end, string text) =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            var lines = File.ReadAllLines(MemoryPath).ToList();
+            start = Math.Max(1, start);
+            end = Math.Min(lines.Count, end);
+            lines.RemoveRange(start - 1, Math.Max(0, end - start + 1));
+            lines.InsertRange(start - 1, text.Split('\n'));
+            File.WriteAllLines(MemoryPath, lines);
+            Console.WriteLine("Memory updated");
+            await Task.CompletedTask;
+        }, replaceStartOpt, replaceEndOpt, replaceTextOpt);
+
         var mergeMemoryPathOpt = new Option<string>("--path") { IsRequired = true };
         var mergeMemoryCmd = new Command("merge-memory-file", "Merge another memory file")
         {
@@ -1186,6 +1241,34 @@ class Program
         {
             var state = LoadState();
             Console.WriteLine($"AgentMode:{state.AgentMode} Model:{state.SelectedModel} Tasks:{state.Tasks.Count} Messages:{state.Conversation.Count}");
+            await Task.CompletedTask;
+        });
+
+        var stateVersionCmd = new Command("state-version", "Show state file version");
+        stateVersionCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.StateVersion);
+            await Task.CompletedTask;
+        });
+
+        var stateSummaryCmd = new Command("state-summary", "Show counts of tasks, messages, and summaries");
+        stateSummaryCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine($"tasks:{state.Tasks.Count} messages:{state.Conversation.Count} summaries:{state.ConversationSummaries.Count}");
+            await Task.CompletedTask;
+        });
+
+        var stateFilesCmd = new Command("state-files", "List all state file paths");
+        stateFilesCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(StatePath);
+            Console.WriteLine(TasksPath);
+            Console.WriteLine(ConversationPath);
+            Console.WriteLine(SummariesPath);
+            Console.WriteLine(ToolsPath);
+            Console.WriteLine(LspPath);
             await Task.CompletedTask;
         });
 
@@ -1436,11 +1519,30 @@ class Program
             await Task.CompletedTask;
         });
 
+        var convWordCountCmd = new Command("conversation-word-count", "Show total word count of conversation");
+        convWordCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var words = state.Conversation.SelectMany(m => m.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+            Console.WriteLine(words.Count());
+            await Task.CompletedTask;
+        });
+
         var summaryCountCmd = new Command("summary-count", "Show number of conversation summaries");
         summaryCountCmd.SetHandler(async () =>
         {
             var state = LoadState();
             Console.WriteLine(state.ConversationSummaries.Count);
+            await Task.CompletedTask;
+        });
+
+        var clearSummariesCmd = new Command("clear-summaries", "Remove all conversation summaries");
+        clearSummariesCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            state.ConversationSummaries.Clear();
+            SaveState(state);
+            Console.WriteLine("Summaries cleared");
             await Task.CompletedTask;
         });
 
@@ -2211,6 +2313,40 @@ class Program
             await Task.CompletedTask;
         }, infoIdOption);
 
+        var latestTaskCmd = new Command("latest-task", "Show most recently created task");
+        latestTaskCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.OrderByDescending(t => t.CreatedAt).FirstOrDefault();
+            if (task != null)
+            {
+                Console.WriteLine($"{task.Id}: {task.Description} [{task.Status}]");
+            }
+            else
+            {
+                Console.WriteLine("No tasks");
+            }
+            await Task.CompletedTask;
+        });
+
+        var inProgressCmd = new Command("tasks-in-progress", "List IDs of in-progress tasks");
+        inProgressCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "in-progress"))
+                Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        });
+
+        var taskDescCmd = new Command("task-descriptions", "List task descriptions");
+        taskDescCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            foreach (var t in state.Tasks)
+                Console.WriteLine(t.Description);
+            await Task.CompletedTask;
+        });
+
         var resetStateCmd = new Command("reset-state", "Delete saved state file");
         resetStateCmd.SetHandler(async () =>
         {
@@ -2475,9 +2611,9 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
-            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd,
+            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd, memoryLinesCmd, insertMemoryCmd, replaceMemoryLinesCmd,
             summarizeCmd, convStatsCmd,
-            convCharCountCmd, summaryCountCmd, compressConvCmd,
+            convCharCountCmd, convWordCountCmd, summaryCountCmd, clearSummariesCmd, compressConvCmd,
             clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
             importSummariesCmd, deleteSummaryCmd,
             setAutoCompressCmd, setThresholdsCmd, showConfigCmd,
@@ -2490,11 +2626,11 @@ class Program
             deleteFileCmd, fileExistsCmd, listDirCmd, listDirRecursiveCmd, headFileCmd, tailFileCmd, fileSizeCmd, createDirCmd, deleteDirCmd, dirExistsCmd, fileInfoCmd, countLinesCmd,
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
-            deleteTaskCmd, taskInfoCmd, taskStatsCmd,
+            deleteTaskCmd, taskInfoCmd, latestTaskCmd, inProgressCmd, taskDescCmd, taskStatsCmd,
             addInputTokensCmd, addToolUseCmd, startToolCmd, updateToolCmd, completeToolCmd, failToolCmd, cleanupToolsCmd, listToolsCmd, toolInfoCmd, toolCountCmd, runningToolsCmd, listToolsByTaskCmd, deleteToolCmd, setToolMetaCmd, exportToolsCmd, importToolsCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
             listMemorySectionsCmd, tasksPathCmd, conversationPathCmd, summariesPathCmd, toolsPathCmd,
-            appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
+            appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, stateVersionCmd, stateSummaryCmd, stateFilesCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
             importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, listConvCmd, conversationAtCmd, deleteBeforeCmd, deleteAfterCmd, deleteContainsCmd, reverseConvCmd, exportConvCmd, deleteConvMsgCmd,

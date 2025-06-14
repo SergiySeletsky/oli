@@ -104,6 +104,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Introduced `LspServerInfo` model and persisted servers in `lsp.json`.
 - Added memory maintenance commands `merge-memory-file`, `reset-memory-file`, `copy-memory-section`, and `swap-memory-sections`.
 - Added conversation utilities `list-conversation`, `conversation-at`, `delete-conversation-before`, `delete-conversation-after`, `delete-conversation-contains`, and `reverse-conversation`.
+- Added memory line utilities `memory-lines`, `insert-memory-lines`, and `replace-memory-lines`.
+- Added conversation commands `conversation-word-count` and `clear-summaries`.
+- Added task helpers `latest-task`, `tasks-in-progress`, and `task-descriptions`.
+- Added state inspection commands `state-version`, `state-summary`, and `state-files`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

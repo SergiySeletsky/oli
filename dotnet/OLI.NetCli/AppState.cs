@@ -3,6 +3,7 @@ using System.IO;
 
 public class AppState
 {
+    public int StateVersion { get; set; } = 1;
     public bool AgentMode { get; set; }
     public int SelectedModel { get; set; }
     public List<string> Conversation { get; set; } = new();
