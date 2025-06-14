@@ -136,7 +136,7 @@ class Program
             var state = LoadState();
             state.SelectedModel = modelIndex;
             state.Conversation.Add($"User: {prompt}");
-            AutoCompress(state);
+            await AutoCompress(state);
             SaveState(state);
             Console.WriteLine($"[Model {modelIndex}] Prompt: {prompt}");
             try
@@ -912,8 +912,6 @@ class Program
             unsubscribeCmd,
             subscriptionsCmd,
             subscriptionCountCmd,
-            deleteSummaryRangeCmd,
-            runCommandCmd,
             rpcStartCmd,
             rpcStopCmd,
             rpcStatusCmd,
@@ -950,7 +948,7 @@ class Program
         return sb.ToString();
     }
 
-    static async void AutoCompress(AppState state)
+    public static async Task AutoCompress(AppState state)
     {
         if (!state.AutoCompress) return;
         var charCount = state.Conversation.Sum(m => m.Length);
@@ -977,12 +975,12 @@ class Program
         }
     }
 
-    static int EstimateTokens(string text)
+    public static int EstimateTokens(string text)
     {
         return text.Length / 4 + 1;
     }
 
-    static (string? FilePath, int? Lines) ExtractToolMetadata(string message)
+    public static (string? FilePath, int? Lines) ExtractToolMetadata(string message)
     {
         string? filePath = null;
         int? lines = null;
@@ -993,7 +991,7 @@ class Program
         return (filePath, lines);
     }
 
-    static string ToolDescription(string name, string? filePath, int? lines)
+    public static string ToolDescription(string name, string? filePath, int? lines)
     {
         return name switch
         {
@@ -1008,12 +1006,12 @@ class Program
         };
     }
 
-    static bool ValidateApiKey(string modelName, string apiKey)
+    public static bool ValidateApiKey(string modelName, string apiKey)
     {
         return !(string.IsNullOrEmpty(apiKey) && !modelName.ToLower().Contains("local"));
     }
 
-    static (string Provider, string AgentModel) DetermineProvider(string modelName, string apiKey, string modelFile)
+    public static (string Provider, string AgentModel) DetermineProvider(string modelName, string apiKey, string modelFile)
     {
         var lower = modelName.ToLower();
         string provider = lower.Contains("claude") ? "Anthropic" : lower.Contains("gpt") ? "OpenAI" : lower.Contains("gemini") ? "Gemini" : "Ollama";
@@ -1027,7 +1025,7 @@ class Program
         return (provider, agentModel);
     }
 
-    static List<string> DisplayToSession(IEnumerable<string> display)
+    public static List<string> DisplayToSession(IEnumerable<string> display)
     {
         var result = new List<string>();
         string role = "user";
@@ -1043,7 +1041,7 @@ class Program
         return result;
     }
 
-    static List<string> SessionToDisplay(IEnumerable<string> session)
+    public static List<string> SessionToDisplay(IEnumerable<string> session)
     {
         return session.Select(s =>
         {

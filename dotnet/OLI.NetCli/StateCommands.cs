@@ -2,6 +2,7 @@ using System;
 using System.CommandLine;
 using System.IO;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 public static class StateCommands
 {

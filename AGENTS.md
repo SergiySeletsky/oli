@@ -242,6 +242,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added commands `subscriptions` and `subscription-count` to inspect active subscriptions.
 - Introduced `rpc-start`, `rpc-stop`, `rpc-status`, and `rpc-notify` commands for RPC control.
 - Added state management commands `export-state`, `import-state`, and `reset-state`.
+- Fixed build by making helper methods public and updating async handlers.
+- Restored missing conversation management commands and cleaned duplicate code.
+- Simplified `LspCommands` and ensured .NET project builds successfully.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
