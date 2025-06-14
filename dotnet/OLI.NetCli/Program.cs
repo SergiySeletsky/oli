@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -335,6 +337,160 @@ class Program
             await Task.CompletedTask;
         });
 
+        var summarizeCmd = new Command("summarize-conversation", "Summarize stored conversation");
+        summarizeCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            if (state.Conversation.Count == 0)
+            {
+                Console.WriteLine("No conversation to summarize");
+                return;
+            }
+
+            var text = string.Join(" ", state.Conversation);
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var summary = string.Join(" ", words.Take(20));
+            state.Conversation.Clear();
+            state.Conversation.Add($"[SUMMARY] {summary}...");
+            SaveState(state);
+            Console.WriteLine(summary);
+            await Task.CompletedTask;
+        });
+
+        var convStatsCmd = new Command("conversation-stats", "Show conversation statistics");
+        convStatsCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var count = state.Conversation.Count;
+            var chars = state.Conversation.Sum(m => m.Length);
+            Console.WriteLine($"Messages: {count} Characters: {chars}");
+            await Task.CompletedTask;
+        });
+
+        var readPathOption = new Option<string>("--path") { IsRequired = true };
+        var readFileCmd = new Command("read-file", "Read file contents") { readPathOption };
+        readFileCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            Console.WriteLine(File.ReadAllText(path));
+            await Task.CompletedTask;
+        }, readPathOption);
+
+        var readNumberedCmd = new Command("read-file-numbered", "Read file with line numbers") { readPathOption };
+        readNumberedCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var lines = File.ReadAllLines(path);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                Console.WriteLine($"{i + 1,4} | {lines[i]}");
+            }
+            await Task.CompletedTask;
+        }, readPathOption);
+
+        var offsetOption = new Option<int>("--offset", () => 0);
+        var limitOption = new Option<int?>("--limit", () => null);
+        var readLinesCmd = new Command("read-file-lines", "Read a range of lines")
+        {
+            readPathOption, offsetOption, limitOption
+        };
+        readLinesCmd.SetHandler(async (string path, int offset, int? limit) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var lines = File.ReadAllLines(path);
+            var start = Math.Clamp(offset, 0, lines.Length);
+            var end = limit.HasValue ? Math.Min(start + limit.Value, lines.Length) : lines.Length;
+            for (int i = start; i < end; i++)
+            {
+                Console.WriteLine($"{i + 1,4} | {lines[i]}");
+            }
+            await Task.CompletedTask;
+        }, readPathOption, offsetOption, limitOption);
+
+        var contentOption2 = new Option<string>("--content") { IsRequired = true };
+        var writeFileCmd = new Command("write-file", "Write content to a file") { readPathOption, contentOption2 };
+        writeFileCmd.SetHandler(async (string path, string content) =>
+        {
+            File.WriteAllText(path, content);
+            Console.WriteLine("File written");
+            await Task.CompletedTask;
+        }, readPathOption, contentOption2);
+
+        var writeDiffCmd = new Command("write-file-diff", "Show diff then write file")
+        {
+            readPathOption, contentOption2
+        };
+        writeDiffCmd.SetHandler(async (string path, string content) =>
+        {
+            var old = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            var diff = GenerateDiff(old, content);
+            File.WriteAllText(path, content);
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, readPathOption, contentOption2);
+
+        var oldOpt = new Option<string>("--old") { IsRequired = true };
+        var newOpt = new Option<string>("--new") { IsRequired = true };
+        var editFileCmd = new Command("edit-file", "Replace text in a file")
+        {
+            readPathOption, oldOpt, newOpt
+        };
+        editFileCmd.SetHandler(async (string path, string oldStr, string newStr) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var content = File.ReadAllText(path);
+            var newContent = content.Replace(oldStr, newStr);
+            var diff = GenerateDiff(content, newContent);
+            File.WriteAllText(path, newContent);
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, readPathOption, oldOpt, newOpt);
+
+        var dirPathOption = new Option<string>("--path", () => ".");
+        var listDirCmd = new Command("list-directory", "List directory contents") { dirPathOption };
+        listDirCmd.SetHandler(async (string path) =>
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            foreach (var entry in Directory.GetFileSystemEntries(path))
+            {
+                Console.WriteLine(entry);
+            }
+            await Task.CompletedTask;
+        }, dirPathOption);
+
+        var fileInfoCmd = new Command("file-info", "Show file metadata") { readPathOption };
+        fileInfoCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                Console.WriteLine("Path not found");
+                return;
+            }
+            var info = new FileInfo(path);
+            Console.WriteLine($"Path: {info.FullName}\nSize: {info.Length} bytes\nModified: {info.LastWriteTime}");
+            await Task.CompletedTask;
+        }, readPathOption);
+
         var currentModelCmd = new Command("current-model", "Show selected model index");
         currentModelCmd.SetHandler(() =>
         {
@@ -571,6 +727,10 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
+            summarizeCmd, convStatsCmd,
+            readFileCmd, readNumberedCmd, readLinesCmd,
+            writeFileCmd, writeDiffCmd, editFileCmd,
+            listDirCmd, fileInfoCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
             deleteTaskCmd, taskInfoCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
@@ -579,5 +739,24 @@ class Program
         };
 
         return root.Invoke(args);
+    }
+
+    static string GenerateDiff(string oldContent, string newContent)
+    {
+        var oldLines = oldContent.Split('\n');
+        var newLines = newContent.Split('\n');
+        var max = Math.Max(oldLines.Length, newLines.Length);
+        var diff = new List<string>();
+        for (int i = 0; i < max; i++)
+        {
+            var oldLine = i < oldLines.Length ? oldLines[i] : string.Empty;
+            var newLine = i < newLines.Length ? newLines[i] : string.Empty;
+            if (oldLine != newLine)
+            {
+                if (!string.IsNullOrEmpty(oldLine)) diff.Add($"- {oldLine}");
+                if (!string.IsNullOrEmpty(newLine)) diff.Add($"+ {newLine}");
+            }
+        }
+        return string.Join('\n', diff);
     }
 }

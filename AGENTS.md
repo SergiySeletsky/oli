@@ -51,6 +51,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added maintenance commands `current-model`, `subscriptions`, `delete-memory-section`,
   `delete-task`, `task-info`, `reset-state`, `import-state`, `export-state`,
   `delete-memory-file`, and `list-memory-sections`.
+- Added conversation utilities `summarize-conversation` and `conversation-stats`.
+- Added file commands `read-file`, `read-file-numbered`, `read-file-lines`,
+  `write-file`, `write-file-diff`, `edit-file`, `list-directory`, and `file-info`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -59,3 +62,5 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
 - Add real-time event streaming support to mirror Rust subscriptions.
+- Replace basic diff implementation with a robust algorithm and hook up LLM
+  summarization for conversation utilities.
