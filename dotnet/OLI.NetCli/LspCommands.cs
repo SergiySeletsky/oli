@@ -59,6 +59,28 @@ public static class LspCommands
             await Task.CompletedTask;
         }, lspIdOpt);
 
+        var lspPathCmd = new Command("lsp-path", "Show path to LSP server list");
+        lspPathCmd.SetHandler(() => { Console.WriteLine(Program.LspPath); });
+
+        // restart
+        var lspRestartCmd = new Command("lsp-restart", "Restart LSP server") { lspIdOpt };
+        lspRestartCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var info = state.LspServers.FirstOrDefault(s => s.Id == id);
+            if (info == null)
+            {
+                Console.WriteLine("Server not found");
+                return;
+            }
+            state.LspServers.RemoveAll(s => s.Id == id);
+            var newInfo = new LspServerInfo { Language = info.Language, RootPath = info.RootPath };
+            state.LspServers.Add(newInfo);
+            Program.SaveState(state);
+            Console.WriteLine($"Restarted {id} -> {newInfo.Id}");
+            await Task.CompletedTask;
+        }, lspIdOpt);
+
         // stop all
         var lspStopAllCmd = new Command("lsp-stop-all", "Stop all LSP servers");
         lspStopAllCmd.SetHandler(async () =>
@@ -179,6 +201,8 @@ public static class LspCommands
             var text = File.Exists(file) ? File.ReadLines(file).Skip(line - 1).FirstOrDefault() ?? string.Empty : string.Empty;
             Console.WriteLine(text.Trim());
             await Task.CompletedTask;
+        root.Add(lspRestartCmd);
+        root.Add(lspPathCmd);
         }, lspFileOpt, lspLineOpt);
 
         var lspFormatCmd = new Command("lsp-format", "Format file") { lspFileOpt };
