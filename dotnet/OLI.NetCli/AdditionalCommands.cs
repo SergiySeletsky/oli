@@ -2481,6 +2481,156 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, logErrLinesOpt);
 
+        // state-diff
+        var stateDiffArg = new Argument<string>("path");
+        var stateDiffCmd = new Command("state-diff", "Diff current state with another") { stateDiffArg };
+        stateDiffCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path) || !File.Exists(Program.StatePath)) { Console.WriteLine("file missing"); return; }
+            var diff = Program.GenerateDiff(File.ReadAllText(Program.StatePath), File.ReadAllText(path));
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, stateDiffArg);
+
+        // conversation-to-jsonl
+        var convJsonlArg = new Argument<string>("path");
+        var convToJsonlCmd = new Command("conversation-to-jsonl", "Export conversation to JSONL") { convJsonlArg };
+        convToJsonlCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            using var writer = new StreamWriter(path);
+            foreach (var line in state.Conversation)
+            {
+                string role = line.StartsWith("[user]") || line.StartsWith("User:") ? "user" :
+                              line.StartsWith("[assistant]") || line.StartsWith("Assistant:") ? "assistant" :
+                              line.StartsWith("[system]") || line.StartsWith("System:") ? "system" : "unknown";
+                string content = line.Contains(']') ? line.Split(']', 2)[1].Trim() : line;
+                var obj = new { role, content };
+                await writer.WriteLineAsync(JsonSerializer.Serialize(obj));
+            }
+        }, convJsonlArg);
+
+        // conversation-from-jsonl
+        var convFromJsonlArg = new Argument<string>("path");
+        var convFromJsonlCmd = new Command("conversation-from-jsonl", "Import conversation from JSONL") { convFromJsonlArg };
+        convFromJsonlCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = new List<string>();
+            foreach (var json in File.ReadLines(path))
+            {
+                var doc = JsonDocument.Parse(json).RootElement;
+                var role = doc.GetProperty("role").GetString();
+                var content = doc.GetProperty("content").GetString();
+                lines.Add($"[{role}] {content}");
+            }
+            var state = Program.LoadState();
+            state.Conversation = lines;
+            Program.SaveState(state);
+            Console.WriteLine("loaded");
+            await Task.CompletedTask;
+        }, convFromJsonlArg);
+
+        // memory-line-count
+        var memLineCountCmd = new Command("memory-line-count", "Number of lines in memory file");
+        memLineCountCmd.SetHandler(async () =>
+        {
+            int count = File.Exists(Program.MemoryPath) ? File.ReadAllLines(Program.MemoryPath).Length : 0;
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        });
+
+        // tasks-with-notes
+        var tasksWithNotesCmd = new Command("tasks-with-notes", "List tasks containing notes");
+        tasksWithNotesCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => !string.IsNullOrWhiteSpace(t.Notes)))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-without-due
+        var tasksWithoutDueCmd = new Command("tasks-without-due", "List tasks missing due date");
+        tasksWithoutDueCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.DueDate == null))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-without-tags
+        var tasksWithoutTagsCmd = new Command("tasks-without-tags", "List tasks that have no tags");
+        tasksWithoutTagsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Tags.Count == 0))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // add-memory-section
+        var addSecNameArg = new Argument<string>("section");
+        var addSecFileArg = new Argument<string>("path");
+        var addMemSectionCmd = new Command("add-memory-section", "Add new memory section from file") { addSecNameArg, addSecFileArg };
+        addMemSectionCmd.SetHandler(async (string section, string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path);
+            using var sw = new StreamWriter(Program.MemoryPath, append: true);
+            await sw.WriteLineAsync($"## {section}");
+            foreach (var l in lines) await sw.WriteLineAsync(l);
+            Console.WriteLine("section added");
+        }, addSecNameArg, addSecFileArg);
+
+        // update-memory-section
+        var updSecNameArg = new Argument<string>("section");
+        var updSecFileArg = new Argument<string>("path");
+        var updateMemSectionCmd = new Command("update-memory-section", "Replace memory section with file contents") { updSecNameArg, updSecFileArg };
+        updateMemSectionCmd.SetHandler(async (string section, string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("no memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath).ToList();
+            int start = lines.FindIndex(l => l.Trim() == $"## {section}");
+            if (start == -1) { Console.WriteLine("section not found"); return; }
+            int end = lines.FindIndex(start + 1, l => l.StartsWith("## "));
+            if (end == -1) end = lines.Count;
+            var newLines = File.ReadAllLines(path);
+            var result = new List<string>(lines.Take(start + 1));
+            result.AddRange(newLines);
+            result.AddRange(lines.Skip(end));
+            File.WriteAllLines(Program.MemoryPath, result);
+            Console.WriteLine("section updated");
+            await Task.CompletedTask;
+        }, updSecNameArg, updSecFileArg);
+
+        // conversation-clear-after
+        var clearAfterArg = new Argument<int>("index");
+        var convClearAfterCmd = new Command("conversation-clear-after", "Remove messages after index") { clearAfterArg };
+        convClearAfterCmd.SetHandler(async (int index) =>
+        {
+            var state = Program.LoadState();
+            if (index < 0 || index >= state.Conversation.Count) { Console.WriteLine("invalid index"); return; }
+            state.Conversation = state.Conversation.Take(index + 1).ToList();
+            Program.SaveState(state);
+            Console.WriteLine("truncated");
+            await Task.CompletedTask;
+        }, clearAfterArg);
+
+        // conversation-slice
+        var sliceStartArg = new Argument<int>("start");
+        var sliceEndArg = new Argument<int>("end");
+        var convSliceCmd = new Command("conversation-slice", "Show messages in range") { sliceStartArg, sliceEndArg };
+        convSliceCmd.SetHandler(async (int start, int end) =>
+        {
+            var state = Program.LoadState();
+            if (start < 0 || end < start || end >= state.Conversation.Count) { Console.WriteLine("invalid range"); return; }
+            for (int i = start; i <= end; i++) Console.WriteLine(state.Conversation[i]);
+            await Task.CompletedTask;
+        }, sliceStartArg, sliceEndArg);
+
         // next-task
         var nextTaskCmd = new Command("next-task", "Show next pending task by priority");
         nextTaskCmd.SetHandler(async () =>
@@ -2539,6 +2689,17 @@ public static class AdditionalCommands
         root.Add(toolLogCmd);
         root.Add(notesExistsCmd);
         root.Add(logErrorsCmd);
+        root.Add(stateDiffCmd);
+        root.Add(convToJsonlCmd);
+        root.Add(convFromJsonlCmd);
+        root.Add(memLineCountCmd);
+        root.Add(tasksWithNotesCmd);
+        root.Add(tasksWithoutDueCmd);
+        root.Add(tasksWithoutTagsCmd);
+        root.Add(addMemSectionCmd);
+        root.Add(updateMemSectionCmd);
+        root.Add(convClearAfterCmd);
+        root.Add(convSliceCmd);
         root.Add(nextTaskCmd);
         root.Add(taskRename);
         root.Add(setPriority);

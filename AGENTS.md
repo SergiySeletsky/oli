@@ -203,6 +203,14 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation exporter `conversation-to-md`.
 - Added tool helpers `open-latest-tool` and `tool-log`.
 - Added notes checker `task-notes-exists` and log viewer `log-errors`.
+- Added diff helper `state-diff` and conversation JSONL commands
+  `conversation-to-jsonl` and `conversation-from-jsonl`.
+- Added `memory-line-count` and task filters `tasks-with-notes`,
+  `tasks-without-due`, and `tasks-without-tags`.
+- Added memory editing commands `add-memory-section` and
+  `update-memory-section`.
+- Added conversation utilities `conversation-clear-after` and
+  `conversation-slice`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
