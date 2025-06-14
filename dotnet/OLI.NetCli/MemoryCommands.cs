@@ -255,6 +255,64 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, copySectionOpt, copyDestOpt);
 
+        // memory-section-lines
+        var sectionLinesOpt = new Option<string>("--section") { IsRequired = true };
+        var memorySectionLinesCmd = new Command("memory-section-lines", "Show lines for a memory section") { sectionLinesOpt };
+        memorySectionLinesCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            bool capture = false;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## "))
+                {
+                    if (capture) break;
+                    capture = line[3..].Trim() == section;
+                    continue;
+                }
+                if (capture && line.StartsWith("- ")) Console.WriteLine(line[2..]);
+            }
+            await Task.CompletedTask;
+        }, sectionLinesOpt);
+
+        // rename-memory-section
+        var renameOldOpt = new Option<string>("--old") { IsRequired = true };
+        var renameNewOpt = new Option<string>("--new") { IsRequired = true };
+        var renameSectionCmd = new Command("rename-memory-section", "Rename a memory section") { renameOldOpt, renameNewOpt };
+        renameSectionCmd.SetHandler(async (string old, string @new) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Trim() == $"## {old}")
+                {
+                    lines[i] = $"## {@new}";
+                    File.WriteAllLines(Program.MemoryPath, lines);
+                    Console.WriteLine("renamed");
+                    await Task.CompletedTask;
+                    return;
+                }
+            }
+            Console.WriteLine("section not found");
+            await Task.CompletedTask;
+        }, renameOldOpt, renameNewOpt);
+
+        // memory-sort-lines
+        var sortLinesCmd = new Command("memory-sort-lines", "Sort memory file lines alphabetically");
+        sortLinesCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .OrderBy(l => l)
+                .ToArray();
+            File.WriteAllLines(Program.MemoryPath, lines);
+            Console.WriteLine("sorted lines");
+            await Task.CompletedTask;
+        });
+
         // swap-memory-sections
         var swapAOpt = new Option<string>("--first") { IsRequired = true };
         var swapBOpt = new Option<string>("--second") { IsRequired = true };
@@ -426,6 +484,9 @@ public static class MemoryCommands
         root.AddCommand(createMemoryCmd);
         root.AddCommand(parseMemoryCmd);
         root.AddCommand(copySectionCmd);
+        root.AddCommand(memorySectionLinesCmd);
+        root.AddCommand(renameSectionCmd);
+        root.AddCommand(sortLinesCmd);
         root.AddCommand(swapSectionCmd);
         root.AddCommand(sectionCountCmd);
         root.AddCommand(entryCountCmd);

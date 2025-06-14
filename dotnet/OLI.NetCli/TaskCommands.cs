@@ -473,6 +473,48 @@ public static class TaskCommands
             await Task.CompletedTask;
         });
 
+        // tasks-pending
+        var tasksPendingCmd = new Command("tasks-pending", "List tasks with pending status");
+        tasksPendingCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "pending"))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-success
+        var tasksSuccessCmd = new Command("tasks-success", "List completed tasks");
+        tasksSuccessCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "completed"))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-by-updated
+        var tasksByUpdatedCmd = new Command("tasks-by-updated", "List tasks sorted by last update");
+        tasksByUpdatedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.OrderByDescending(t => t.UpdatedAt))
+                Console.WriteLine($"{t.UpdatedAt:u} {t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-recent
+        var recentDaysOpt = new Option<int>("--days", () => 1);
+        var tasksRecentCmd = new Command("tasks-recent", "List tasks updated within given days") { recentDaysOpt };
+        tasksRecentCmd.SetHandler(async (int days) =>
+        {
+            var state = Program.LoadState();
+            var cutoff = DateTime.UtcNow.AddDays(-days);
+            foreach (var t in state.Tasks.Where(t => t.UpdatedAt >= cutoff))
+                Console.WriteLine($"{t.UpdatedAt:u} {t.Id} {t.Description}");
+            await Task.CompletedTask;
+        }, recentDaysOpt);
+
         var inProgressCmd = new Command("tasks-in-progress", "List IDs of in-progress tasks");
         inProgressCmd.SetHandler(async () =>
         {
@@ -517,6 +559,10 @@ public static class TaskCommands
         root.AddCommand(deleteTaskCmd);
         root.AddCommand(taskInfoCmd);
         root.AddCommand(latestTaskCmd);
+        root.AddCommand(tasksPendingCmd);
+        root.AddCommand(tasksSuccessCmd);
+        root.AddCommand(tasksByUpdatedCmd);
+        root.AddCommand(tasksRecentCmd);
         root.AddCommand(inProgressCmd);
         root.AddCommand(taskDescCmd);
     }

@@ -215,6 +215,83 @@ public static class AdditionalCommands
             }
         }, sumTextArg);
 
+        // summarize-file
+        var sumFileArg = new Argument<string>("path");
+        var summarizeFileCmd = new Command("summarize-file", "Summarize a file") { sumFileArg };
+        summarizeFileCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var text = File.ReadAllText(path);
+            string summary;
+            try { summary = await KernelUtils.SummarizeAsync(text); }
+            catch { summary = Program.GenerateSummary(text); }
+            Console.WriteLine(summary);
+        }, sumFileArg);
+
+        // summarize-memory-section
+        var sumSectionArg = new Argument<string>("section");
+        var summarizeMemorySectionCmd = new Command("summarize-memory-section", "Summarize a memory section") { sumSectionArg };
+        summarizeMemorySectionCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            var sb = new StringBuilder();
+            bool capture = false;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## "))
+                {
+                    if (capture) break;
+                    capture = line[3..].Trim() == section;
+                    continue;
+                }
+                if (capture) sb.AppendLine(line);
+            }
+            var text = sb.ToString();
+            string summary;
+            try { summary = await KernelUtils.SummarizeAsync(text); }
+            catch { summary = Program.GenerateSummary(text); }
+            Console.WriteLine(summary);
+        }, sumSectionArg);
+
+        // summarize-tasks
+        var summarizeTasksCmd = new Command("summarize-tasks", "Summarize all tasks");
+        summarizeTasksCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var text = string.Join("\n", state.Tasks.Select(t => $"{t.Id}: {t.Description} [{t.Status}]"));
+            string summary;
+            try { summary = await KernelUtils.SummarizeAsync(text); }
+            catch { summary = Program.GenerateSummary(text); }
+            Console.WriteLine(summary);
+        });
+
+        // summarize-state
+        var summarizeStateCmd = new Command("summarize-state", "Summarize entire state file");
+        summarizeStateCmd.SetHandler(async () =>
+        {
+            var json = File.Exists(Program.StatePath) ? File.ReadAllText(Program.StatePath) : "{}";
+            string summary;
+            try { summary = await KernelUtils.SummarizeAsync(json); }
+            catch { summary = Program.GenerateSummary(json); }
+            Console.WriteLine(summary);
+        });
+
+        // conversation-word-frequency
+        var convTopOpt = new Option<int>("--top", () => 10);
+        var conversationWordFreqCmd = new Command("conversation-word-frequency", "Top words in conversation") { convTopOpt };
+        conversationWordFreqCmd.SetHandler(async (int top) =>
+        {
+            var state = Program.LoadState();
+            var words = state.Conversation
+                .SelectMany(l => l.Split(new[]{' ','\n','\r','\t'}, StringSplitOptions.RemoveEmptyEntries))
+                .Select(w => w.ToLowerInvariant());
+            var freq = words.GroupBy(w => w).Select(g => (Word:g.Key, Count:g.Count()))
+                .OrderByDescending(g => g.Count).Take(top);
+            foreach (var (word,count) in freq) Console.WriteLine($"{word}:{count}");
+            await Task.CompletedTask;
+        }, convTopOpt);
+
         // task-rename
         var idArg = new Argument<string>("id");
         var descArg = new Argument<string>("description");
@@ -1647,6 +1724,11 @@ public static class AdditionalCommands
         root.Add(displayToSessionCmd);
         root.Add(sessionToDisplayCmd);
         root.Add(summarizeTextCmd);
+        root.Add(summarizeFileCmd);
+        root.Add(summarizeMemorySectionCmd);
+        root.Add(summarizeTasksCmd);
+        root.Add(summarizeStateCmd);
+        root.Add(conversationWordFreqCmd);
         root.Add(logPathCmd);
         root.Add(searchLogCmd);
         root.Add(exportLogCmd);

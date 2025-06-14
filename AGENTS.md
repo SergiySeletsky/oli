@@ -275,6 +275,13 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `grep-search`, and `grep-search-adv` with ignore pattern support.
 - Added file queries `grep-files`, `latest-glob`, `glob-count`, `grep-first`,
   and `grep-last`.
+- Added summarization helpers `summarize-file`, `summarize-memory-section`,
+  `summarize-tasks`, and `summarize-state`.
+- Added conversation analysis command `conversation-word-frequency`.
+- Added task utilities `tasks-pending`, `tasks-success`, `tasks-by-updated`,
+  and `tasks-recent`.
+- Added memory helpers `memory-section-lines`, `rename-memory-section`, and
+  `memory-sort-lines`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
