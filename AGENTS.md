@@ -175,7 +175,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Introduced tool progress commands `tool-progress` and `tool-progress-all`.
 - Added task listing helpers `tasks-today` and `tasks-week`.
 - Implemented `export-tasks-md` to save tasks as Markdown.
-- Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
+- Integrated Semantic Kernel to power model replies and summaries.
+- Updated `run` to call the LLM and store the assistant response.
+- Enhanced auto compression and conversation/text summarization with LLM calls.
+- Added commands `summarize-file`, `summarize-memory-section`, `summarize-tasks`,
+  `summarize-state`, `conversation-word-frequency`, and `tasks-due-today`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.

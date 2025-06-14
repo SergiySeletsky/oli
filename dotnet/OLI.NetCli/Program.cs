@@ -13,6 +13,7 @@ using static FileUtils;
 using static JsonUtils;
 using static MemoryUtils;
 using static LogUtils;
+using static KernelUtils;
 
 class Program
 {
@@ -136,8 +137,17 @@ class Program
             AutoCompress(state);
             SaveState(state);
             Console.WriteLine($"[Model {modelIndex}] Prompt: {prompt}");
-            // TODO: call model API
-            await Task.CompletedTask;
+            try
+            {
+                var reply = await CompleteAsync(prompt);
+                state.Conversation.Add($"Assistant: {reply}");
+                SaveState(state);
+                Console.WriteLine(reply);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
         }, promptOption, modelOption);
 
         var enableOption = new Option<bool>("--enable", "Set to true to enable agent mode") { IsRequired = true };
@@ -1543,14 +1553,20 @@ class Program
                 return;
             }
 
-            var text = string.Join(" ", state.Conversation);
-            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var summary = string.Join(" ", words.Take(20));
+            var text = string.Join("\n", state.Conversation);
+            string summary;
+            try
+            {
+                summary = await SummarizeAsync(text);
+            }
+            catch
+            {
+                summary = GenerateSummary(text);
+            }
             state.Conversation.Clear();
-            state.Conversation.Add($"[SUMMARY] {summary}...");
+            state.Conversation.Add($"[SUMMARY] {summary}");
             SaveState(state);
             Console.WriteLine(summary);
-            await Task.CompletedTask;
         });
 
         var convStatsCmd = new Command("conversation-stats", "Show conversation statistics");
@@ -1719,8 +1735,15 @@ class Program
         var summarizeTextCmd = new Command("summarize-text", "Summarize provided text") { summarizeTextOpt };
         summarizeTextCmd.SetHandler(async (string text) =>
         {
-            Console.WriteLine(GenerateSummary(text));
-            await Task.CompletedTask;
+            try
+            {
+                var summary = await SummarizeAsync(text);
+                Console.WriteLine(summary);
+            }
+            catch
+            {
+                Console.WriteLine(GenerateSummary(text));
+            }
         }, summarizeTextOpt);
 
         var cmdOpt = new Option<string>("--cmd") { IsRequired = true };
@@ -1778,9 +1801,16 @@ class Program
                 Console.WriteLine("No conversation to compress");
                 return;
             }
-            var text = string.Join(" ", state.Conversation);
-            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var summary = string.Join(" ", words.Take(20));
+            var text = string.Join("\n", state.Conversation);
+            string summary;
+            try
+            {
+                summary = await SummarizeAsync(text);
+            }
+            catch
+            {
+                summary = GenerateSummary(text);
+            }
             state.ConversationSummaries.Add(new ConversationSummary
             {
                 Content = summary,
@@ -1791,7 +1821,6 @@ class Program
             state.Conversation.Clear();
             SaveState(state);
             Console.WriteLine(summary);
-            await Task.CompletedTask;
         });
 
         var clearHistoryCmd = new Command("clear-history", "Remove conversation and summaries");
@@ -2824,15 +2853,22 @@ class Program
         return string.Join('\n', diff);
     }
 
-    static void AutoCompress(AppState state)
+    static async void AutoCompress(AppState state)
     {
         if (!state.AutoCompress) return;
         var charCount = state.Conversation.Sum(m => m.Length);
         if (state.Conversation.Count >= state.CompressMessageThreshold || charCount >= state.CompressCharThreshold)
         {
             var text = string.Join(" ", state.Conversation);
-            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var summary = string.Join(" ", words.Take(20));
+            string summary;
+            try
+            {
+                summary = await SummarizeAsync(text);
+            }
+            catch
+            {
+                summary = GenerateSummary(text);
+            }
             state.ConversationSummaries.Add(new ConversationSummary
             {
                 Content = summary,
@@ -2927,7 +2963,7 @@ class Program
         }).ToList();
     }
 
-    static string GenerateSummary(string text)
+    public static string GenerateSummary(string text)
     {
         var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return string.Join(" ", words.Take(20));

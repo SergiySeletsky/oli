@@ -8,6 +8,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using static KernelUtils;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using static LogUtils;
@@ -1589,6 +1590,88 @@ public static class AdditionalCommands
             Console.WriteLine("exported");
         }, exportMdArg);
 
+        // summarize-file
+        var sumFileArg = new Argument<string>("path");
+        var sumFileCmd = new Command("summarize-file", "Summarize file content") { sumFileArg };
+        sumFileCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            var text = await File.ReadAllTextAsync(path);
+            try
+            {
+                Console.WriteLine(await SummarizeAsync(text));
+            }
+            catch
+            {
+                Console.WriteLine(Program.GenerateSummary(text));
+            }
+        }, sumFileArg);
+
+        // summarize-memory-section
+        var sumSecArg = new Argument<string>("section");
+        var sumSecCmd = new Command("summarize-memory-section", "Summarize a memory section") { sumSecArg };
+        sumSecCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            var inSec = false; var sb = new StringBuilder();
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("[")) inSec = line.Trim('[',']') == section;
+                else if (inSec) sb.AppendLine(line);
+            }
+            var text = sb.ToString();
+            if (string.IsNullOrWhiteSpace(text)) { Console.WriteLine("section not found"); return; }
+            try { Console.WriteLine(await SummarizeAsync(text)); }
+            catch { Console.WriteLine(Program.GenerateSummary(text)); }
+        }, sumSecArg);
+
+        // conversation-word-frequency
+        var convFreqCmd = new Command("conversation-word-frequency", "Show word frequencies in conversation");
+        convFreqCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var words = state.Conversation.SelectMany(m => m.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .Select(w => w.ToLowerInvariant());
+            var freq = words.GroupBy(w => w).Select(g => (Word: g.Key, Count: g.Count()))
+                .OrderByDescending(g => g.Count).Take(10);
+            foreach (var (w,c) in freq) Console.WriteLine($"{w} {c}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-due-today
+        var tasksTodayDueCmd = new Command("tasks-due-today", "List tasks due today");
+        tasksTodayDueCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var today = DateTime.UtcNow.Date;
+            foreach (var t in state.Tasks.Where(t => t.DueDate?.Date == today))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // summarize-tasks
+        var sumTasksCmd = new Command("summarize-tasks", "Summarize all tasks");
+        sumTasksCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var text = string.Join("\n", state.Tasks.Select(t => t.Description));
+            if (string.IsNullOrWhiteSpace(text)) { Console.WriteLine("no tasks"); return; }
+            try { Console.WriteLine(await SummarizeAsync(text)); }
+            catch { Console.WriteLine(Program.GenerateSummary(text)); }
+        });
+
+        // summarize-state
+        var sumStateCmd = new Command("summarize-state", "Summarize conversation and tasks");
+        sumStateCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var text = string.Join("\n", state.Conversation) + "\n" + string.Join("\n", state.Tasks.Select(t => t.Description));
+            if (string.IsNullOrWhiteSpace(text)) { Console.WriteLine("no data"); return; }
+            try { Console.WriteLine(await SummarizeAsync(text)); }
+            catch { Console.WriteLine(Program.GenerateSummary(text)); }
+        });
+
         root.Add(convUniqueCmd);
         root.Add(dedupeMemCmd);
         root.Add(grepAdvCmd);
@@ -1599,6 +1682,12 @@ public static class AdditionalCommands
         root.Add(tasksTodayCmd);
         root.Add(tasksWeekCmd);
         root.Add(exportMdCmd);
+        root.Add(sumFileCmd);
+        root.Add(sumSecCmd);
+        root.Add(convFreqCmd);
+        root.Add(tasksTodayDueCmd);
+        root.Add(sumTasksCmd);
+        root.Add(sumStateCmd);
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };
         var moveToOpt = new Option<int>("--to") { IsRequired = true };
