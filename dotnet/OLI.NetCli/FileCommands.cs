@@ -290,6 +290,91 @@ public static class FileCommands
             await Task.CompletedTask;
         }, readPathOption, grepCountArg);
 
+        var globPatternArg = new Argument<string>("pattern");
+        var globSearchCmd = new Command("glob-search", "Find files matching pattern") { globPatternArg };
+        globSearchCmd.SetHandler(async (string pattern) =>
+        {
+            foreach (var f in FileUtils.GlobSearch(pattern)) Console.WriteLine(f);
+            await Task.CompletedTask;
+        }, globPatternArg);
+
+        var globDirArg = new Argument<string>("dir");
+        var globInDirCmd = new Command("glob-search-in-dir", "Find files in directory") { globDirArg, globPatternArg };
+        globInDirCmd.SetHandler(async (string dir, string pattern) =>
+        {
+            foreach (var f in FileUtils.GlobSearchInDir(dir, pattern)) Console.WriteLine(f);
+            await Task.CompletedTask;
+        }, globDirArg, globPatternArg);
+
+        var globAdvCmd = new Command("glob-search-adv", "Glob search respecting ignore files") { globDirArg, globPatternArg };
+        globAdvCmd.SetHandler(async (string dir, string pattern) =>
+        {
+            foreach (var f in FileUtils.GlobSearchAdv(dir, pattern)) Console.WriteLine(f);
+            await Task.CompletedTask;
+        }, globDirArg, globPatternArg);
+
+        var grepPatternArg = new Argument<string>("pattern");
+        var grepDirArg = new Argument<string>("dir", () => ".");
+        var includeOpt = new Option<string?>("--include");
+        var grepSearchCmd = new Command("grep-search", "Search files for pattern") { grepDirArg, grepPatternArg, includeOpt };
+        grepSearchCmd.SetHandler(async (string dir, string pattern, string? include) =>
+        {
+            foreach (var (file, line, text) in FileUtils.GrepSearch(dir, pattern, include))
+                Console.WriteLine($"{file}:{line}:{text}");
+            await Task.CompletedTask;
+        }, grepDirArg, grepPatternArg, includeOpt);
+
+        var grepAdvCmd = new Command("grep-search-adv", "Advanced grep with ignore files") { grepDirArg, grepPatternArg, includeOpt };
+        grepAdvCmd.SetHandler(async (string dir, string pattern, string? include) =>
+        {
+            foreach (var (file, line, text) in FileUtils.GrepSearchAdv(dir, pattern, include))
+                Console.WriteLine($"{file}:{line}:{text}");
+            await Task.CompletedTask;
+        }, grepDirArg, grepPatternArg, includeOpt);
+
+        var grepFilesCmd = new Command("grep-files", "List files containing pattern") { grepDirArg, grepPatternArg, includeOpt };
+        grepFilesCmd.SetHandler(async (string dir, string pattern, string? include) =>
+        {
+            var files = FileUtils.GrepSearch(dir, pattern, include).Select(t => t.File).Distinct();
+            foreach (var f in files) Console.WriteLine(f);
+            await Task.CompletedTask;
+        }, grepDirArg, grepPatternArg, includeOpt);
+
+        var latestGlobCmd = new Command("latest-glob", "Show most recent file for glob") { globPatternArg };
+        latestGlobCmd.SetHandler(async (string pattern) =>
+        {
+            var file = FileUtils.GlobSearch(pattern).FirstOrDefault();
+            Console.WriteLine(file ?? "none");
+            await Task.CompletedTask;
+        }, globPatternArg);
+
+        var globCountCmd = new Command("glob-count", "Count files matching glob") { globPatternArg };
+        globCountCmd.SetHandler(async (string pattern) =>
+        {
+            Console.WriteLine(FileUtils.GlobSearch(pattern).Count());
+            await Task.CompletedTask;
+        }, globPatternArg);
+
+        var grepFirstCmd = new Command("grep-first", "Show first match") { grepDirArg, grepPatternArg, includeOpt };
+        grepFirstCmd.SetHandler(async (string dir, string pattern, string? include) =>
+        {
+            var match = FileUtils.GrepSearch(dir, pattern, include).FirstOrDefault();
+            if (match != default)
+                Console.WriteLine($"{match.File}:{match.Line}:{match.Text}");
+            else Console.WriteLine("no match");
+            await Task.CompletedTask;
+        }, grepDirArg, grepPatternArg, includeOpt);
+
+        var grepLastCmd = new Command("grep-last", "Show last match") { grepDirArg, grepPatternArg, includeOpt };
+        grepLastCmd.SetHandler(async (string dir, string pattern, string? include) =>
+        {
+            var match = FileUtils.GrepSearch(dir, pattern, include).LastOrDefault();
+            if (match != default)
+                Console.WriteLine($"{match.File}:{match.Line}:{match.Text}");
+            else Console.WriteLine("no match");
+            await Task.CompletedTask;
+        }, grepDirArg, grepPatternArg, includeOpt);
+
         var createDirCmd = new Command("create-directory", "Create a directory") { dirPathOption };
         createDirCmd.SetHandler(async (string path) =>
         {
@@ -354,6 +439,16 @@ public static class FileCommands
         root.Add(headFileCmd);
         root.Add(tailFileCmd);
         root.Add(tailFollowCmd);
+        root.Add(globSearchCmd);
+        root.Add(globInDirCmd);
+        root.Add(globAdvCmd);
+        root.Add(latestGlobCmd);
+        root.Add(globCountCmd);
+        root.Add(grepSearchCmd);
+        root.Add(grepAdvCmd);
+        root.Add(grepFilesCmd);
+        root.Add(grepFirstCmd);
+        root.Add(grepLastCmd);
         root.Add(grepCountCmd);
         root.Add(fileSizeCmd);
         root.Add(createDirCmd);

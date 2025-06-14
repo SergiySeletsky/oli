@@ -99,4 +99,72 @@ public static class FileUtils
         }
         return false;
     }
+
+    public static IEnumerable<string> GlobSearch(string pattern)
+    {
+        var matcher = new Microsoft.Extensions.FileSystemGlobbing.Matcher();
+        matcher.AddInclude(pattern);
+        var result = matcher.Execute(new Microsoft.Extensions.FileSystemGlobbing.Abstractions.DirectoryInfoWrapper(new DirectoryInfo(Directory.GetCurrentDirectory())));
+        return result.Files.Select(f => Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), f.Path)))
+            .OrderByDescending(f => File.GetLastWriteTimeUtc(f));
+    }
+
+    public static IEnumerable<string> GlobSearchInDir(string dir, string pattern)
+    {
+        var matcher = new Microsoft.Extensions.FileSystemGlobbing.Matcher();
+        matcher.AddInclude(pattern);
+        var result = matcher.Execute(new Microsoft.Extensions.FileSystemGlobbing.Abstractions.DirectoryInfoWrapper(new DirectoryInfo(dir)));
+        return result.Files.Select(f => Path.GetFullPath(Path.Combine(dir, f.Path)))
+            .OrderByDescending(f => File.GetLastWriteTimeUtc(f));
+    }
+
+    public static IEnumerable<string> GlobSearchAdv(string dir, string pattern)
+    {
+        var matcher = new Microsoft.Extensions.FileSystemGlobbing.Matcher();
+        matcher.AddInclude(pattern);
+        foreach (var pat in LoadIgnorePatterns(dir))
+            matcher.AddExclude(pat);
+        var result = matcher.Execute(new Microsoft.Extensions.FileSystemGlobbing.Abstractions.DirectoryInfoWrapper(new DirectoryInfo(dir)));
+        return result.Files.Select(f => Path.GetFullPath(Path.Combine(dir, f.Path)))
+            .OrderByDescending(f => File.GetLastWriteTimeUtc(f));
+    }
+
+    public static IEnumerable<(string File, int Line, string Text)> GrepSearch(string dir, string pattern, string? includePattern = null)
+    {
+        var regex = new System.Text.RegularExpressions.Regex(pattern);
+        IEnumerable<string> files = includePattern != null
+            ? GlobSearchInDir(dir, includePattern)
+            : Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories);
+        foreach (var file in files)
+        {
+            if (IsBinaryFile(file)) continue;
+            int lineNum = 0;
+            foreach (var line in File.ReadLines(file))
+            {
+                lineNum++;
+                if (regex.IsMatch(line))
+                    yield return (file, lineNum, line);
+            }
+        }
+    }
+
+    public static IEnumerable<(string File, int Line, string Text)> GrepSearchAdv(string dir, string pattern, string? includePattern = null)
+    {
+        var regex = new System.Text.RegularExpressions.Regex(pattern);
+        var ignores = LoadIgnorePatterns(dir);
+        IEnumerable<string> files = includePattern != null
+            ? GlobSearchInDir(dir, includePattern)
+            : Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories);
+        foreach (var file in files)
+        {
+            if (IsIgnored(file, ignores) || IsBinaryFile(file)) continue;
+            int lineNum = 0;
+            foreach (var line in File.ReadLines(file))
+            {
+                lineNum++;
+                if (regex.IsMatch(line))
+                    yield return (file, lineNum, line);
+            }
+        }
+    }
 }

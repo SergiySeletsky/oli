@@ -271,6 +271,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added file utilities `grep-count` and `tail-file-follow`.
 - Added memory command `memory-diff`.
 - Added JSON helpers `json-merge` and `json-validate`.
+- Added search helpers `glob-search`, `glob-search-in-dir`, `glob-search-adv`,
+  `grep-search`, and `grep-search-adv` with ignore pattern support.
+- Added file queries `grep-files`, `latest-glob`, `glob-count`, `grep-first`,
+  and `grep-last`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
