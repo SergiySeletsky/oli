@@ -66,6 +66,16 @@ public static class SummaryCommands
             await Task.CompletedTask;
         }, importSummariesPathOpt);
 
+        var clearSummariesCmd = new Command("clear-summaries", "Remove all conversation summaries");
+        clearSummariesCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.ConversationSummaries.Clear();
+            Program.SaveState(state);
+            Console.WriteLine("Summaries cleared");
+            await Task.CompletedTask;
+        });
+
         var deleteSummaryIndexOpt = new Option<int>("--index") { IsRequired = true };
         var deleteSummaryCmd = new Command("delete-summary", "Remove a summary by index") { deleteSummaryIndexOpt };
         deleteSummaryCmd.SetHandler(async (int index) =>
@@ -175,6 +185,7 @@ public static class SummaryCommands
         root.Add(deleteSummaryCmd);
         root.Add(deleteSummaryRangeCmd);
         root.Add(latestSummaryCmd);
+        root.Add(clearSummariesCmd);
         root.Add(summaryInfoCmd);
         root.Add(summaryExistsCmd);
         root.Add(appendSummaryCmd);

@@ -917,186 +917,6 @@ class Program
             await Task.CompletedTask;
         }, deleteIndexOpt);
 
-        var convLenCmd = new Command("conversation-length", "Show number of conversation messages");
-        convLenCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            Console.WriteLine(state.Conversation.Count);
-            await Task.CompletedTask;
-        });
-
-        var lastConvCmd = new Command("conversation-last", "Show last conversation message");
-        lastConvCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.Conversation.Count == 0)
-            {
-                Console.WriteLine("No conversation");
-            }
-            else
-            {
-                Console.WriteLine(state.Conversation.Last());
-            }
-            await Task.CompletedTask;
-        });
-
-        var convSearchTextOpt = new Option<string>("--text") { IsRequired = true };
-        var convSearchCmd = new Command("conversation-search", "Search conversation for text") { convSearchTextOpt };
-        convSearchCmd.SetHandler(async (string text) =>
-        {
-            var state = LoadState();
-            var matches = state.Conversation
-                .Select((m, i) => (m, i))
-                .Where(t => t.m.Contains(text, StringComparison.OrdinalIgnoreCase));
-            foreach (var (m, i) in matches)
-            {
-                Console.WriteLine($"[{i}] {m}");
-            }
-            await Task.CompletedTask;
-        }, convSearchTextOpt);
-
-        var startOpt = new Option<int>("--start") { IsRequired = true };
-        var endOpt = new Option<int>("--end") { IsRequired = true };
-        var deleteRangeCmd = new Command("delete-conversation-range", "Delete messages in index range") { startOpt, endOpt };
-        deleteRangeCmd.SetHandler(async (int start, int end) =>
-        {
-            var state = LoadState();
-            if (start < 0 || end >= state.Conversation.Count || start > end)
-            {
-                Console.WriteLine("Invalid range");
-                return;
-            }
-            state.Conversation.RemoveRange(start, end - start + 1);
-            SaveState(state);
-            Console.WriteLine("Messages removed");
-            await Task.CompletedTask;
-        }, startOpt, endOpt);
-
-        var convFirstCmd = new Command("conversation-first", "Show first conversation message");
-        convFirstCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.Conversation.Count > 0)
-            {
-                Console.WriteLine(state.Conversation.First());
-            }
-            else
-            {
-                Console.WriteLine("No conversation");
-            }
-            await Task.CompletedTask;
-        });
-
-        var showRangeStartOpt = new Option<int>("--start") { IsRequired = true };
-        var showRangeEndOpt = new Option<int>("--end") { IsRequired = true };
-        var conversationRangeCmd = new Command("conversation-range", "Show conversation messages in range") { showRangeStartOpt, showRangeEndOpt };
-        conversationRangeCmd.SetHandler(async (int start, int end) =>
-        {
-            var state = LoadState();
-            if (start < 0 || end >= state.Conversation.Count || start > end)
-            {
-                Console.WriteLine("Invalid range");
-                return;
-            }
-            for (int i = start; i <= end; i++)
-            {
-                Console.WriteLine(state.Conversation[i]);
-            }
-            await Task.CompletedTask;
-        }, showRangeStartOpt, showRangeEndOpt);
-
-        var conversationInfoCmd = new Command("conversation-info", "Show conversation statistics and ends");
-        conversationInfoCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            var count = state.Conversation.Count;
-            var chars = state.Conversation.Sum(m => m.Length);
-            var first = count > 0 ? state.Conversation.First() : string.Empty;
-            var last = count > 0 ? state.Conversation.Last() : string.Empty;
-            Console.WriteLine($"count:{count} chars:{chars}\nfirst:{first}\nlast:{last}");
-            await Task.CompletedTask;
-        });
-
-        var listConvCmd = new Command("list-conversation", "List conversation messages");
-        listConvCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            for (int i = 0; i < state.Conversation.Count; i++)
-            {
-                Console.WriteLine($"[{i}] {state.Conversation[i]}");
-            }
-            await Task.CompletedTask;
-        });
-
-        var atIndexOpt = new Option<int>("--index") { IsRequired = true };
-        var conversationAtCmd = new Command("conversation-at", "Show message at index") { atIndexOpt };
-        conversationAtCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.Conversation.Count)
-                Console.WriteLine(state.Conversation[index]);
-            else
-                Console.WriteLine("Invalid index");
-            await Task.CompletedTask;
-        }, atIndexOpt);
-
-        var delBeforeOpt = new Option<int>("--index") { IsRequired = true };
-        var deleteBeforeCmd = new Command("delete-conversation-before", "Delete messages before index") { delBeforeOpt };
-        deleteBeforeCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.Conversation.Count)
-            {
-                state.Conversation.RemoveRange(0, index);
-                SaveState(state);
-                Console.WriteLine("Messages removed");
-            }
-            else
-            {
-                Console.WriteLine("Invalid index");
-            }
-            await Task.CompletedTask;
-        }, delBeforeOpt);
-
-        var delAfterOpt = new Option<int>("--index") { IsRequired = true };
-        var deleteAfterCmd = new Command("delete-conversation-after", "Delete messages after index") { delAfterOpt };
-        deleteAfterCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.Conversation.Count)
-            {
-                state.Conversation.RemoveRange(index + 1, state.Conversation.Count - index - 1);
-                SaveState(state);
-                Console.WriteLine("Messages removed");
-            }
-            else
-            {
-                Console.WriteLine("Invalid index");
-            }
-            await Task.CompletedTask;
-        }, delAfterOpt);
-
-        var delContainsOpt = new Option<string>("--text") { IsRequired = true };
-        var deleteContainsCmd = new Command("delete-conversation-contains", "Delete messages containing text") { delContainsOpt };
-        deleteContainsCmd.SetHandler(async (string text) =>
-        {
-            var state = LoadState();
-            int before = state.Conversation.Count;
-            state.Conversation = state.Conversation.Where(m => !m.Contains(text, StringComparison.OrdinalIgnoreCase)).ToList();
-            SaveState(state);
-            Console.WriteLine(before - state.Conversation.Count);
-            await Task.CompletedTask;
-        }, delContainsOpt);
-
-        var reverseConvCmd = new Command("reverse-conversation", "Reverse conversation order");
-        reverseConvCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            state.Conversation.Reverse();
-            SaveState(state);
-            Console.WriteLine("Conversation reversed");
-            await Task.CompletedTask;
-        });
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
         memoryInfoCmd.SetHandler(async () =>
         {
@@ -1597,15 +1417,6 @@ class Program
             await Task.CompletedTask;
         });
 
-        var clearSummariesCmd = new Command("clear-summaries", "Remove all conversation summaries");
-        clearSummariesCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            state.ConversationSummaries.Clear();
-            SaveState(state);
-            Console.WriteLine("Summaries cleared");
-            await Task.CompletedTask;
-        });
 
         var setAutoCompressOption = new Option<bool>("--enable") { IsRequired = true };
         var setAutoCompressCmd = new Command("set-auto-compress", "Enable or disable automatic compression") { setAutoCompressOption };
@@ -2034,7 +1845,7 @@ class Program
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
             sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd, memoryLinesCmd, memoryHeadCmd, memoryTailCmd, insertMemoryCmd, replaceMemoryLinesCmd,
             summarizeCmd, convStatsCmd,
-            convCharCountCmd, convWordCountCmd, clearSummariesCmd, compressConvCmd,
+            convCharCountCmd, convWordCountCmd, compressConvCmd,
             clearHistoryCmd,
             setAutoCompressCmd, setThresholdsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
@@ -2050,7 +1861,7 @@ class Program
             appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, stateVersionCmd, stateSummaryCmd, stateFilesCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, listConvCmd, conversationAtCmd, deleteBeforeCmd, deleteAfterCmd, deleteContainsCmd, reverseConvCmd, exportConvCmd, deleteConvMsgCmd,
+            importTasksCmd, importConvCmd, appendConvCmd, exportConvCmd, deleteConvMsgCmd,
             deleteSummaryRangeCmd,
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,

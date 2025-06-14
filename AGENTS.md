@@ -219,6 +219,13 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Split conversation summary features into `SummaryCommands.cs` and added JSON
   helpers in `JsonCommands.cs`.
 - Added binary file utilities and hashing commands to `FileCommands.cs`.
+- Added conversation utilities `conversation-length`, `conversation-last`,
+  `conversation-search`, `delete-conversation-range`, `conversation-first`,
+  `conversation-range`, `conversation-info`, `list-conversation`,
+  `conversation-at`, `delete-conversation-before`, `delete-conversation-after`,
+  `delete-conversation-contains`, and `reverse-conversation` in
+  `AdditionalCommands.cs`.
+- Moved `clear-summaries` into `SummaryCommands.cs`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
