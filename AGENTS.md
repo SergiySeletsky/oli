@@ -195,6 +195,44 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.
+- Added tool commands `clear-completed-tools`, `tool-duration`, `tools-by-status`,
+  `tool-exists`, `latest-tool`, `tool-age`, `tools-recent`, `running-tool-count`,
+  `tools-by-name`, and `tool-count-by-name`.
+- Added task utilities `task-summary`, `delete-tasks-by-status`, and `next-task`.
+- Added memory helpers `list-memory-files` and `memory-keywords`.
+- Added conversation exporter `conversation-to-md`.
+- Added tool helpers `open-latest-tool` and `tool-log`.
+- Added notes checker `task-notes-exists` and log viewer `log-errors`.
+- Added diff helper `state-diff` and conversation JSONL commands
+  `conversation-to-jsonl` and `conversation-from-jsonl`.
+- Added `memory-line-count` and task filters `tasks-with-notes`,
+  `tasks-without-due`, and `tasks-without-tags`.
+- Added memory editing commands `add-memory-section` and
+  `update-memory-section`.
+- Added conversation utilities `conversation-clear-after` and
+  `conversation-slice`.
+- Moved configuration and text utility commands `show-config`, `estimate-tokens`,
+  `extract-metadata`, `tool-description`, `has-active-tasks`, `task-statuses`,
+  `validate-api-key`, `determine-provider`, `display-to-session`,
+  `session-to-display`, and `summarize-text` into `AdditionalCommands.cs`.
+- Moved file operation commands into `FileCommands.cs` for better organization.
+- Split conversation summary features into `SummaryCommands.cs` and added JSON
+  helpers in `JsonCommands.cs`.
+- Added binary file utilities and hashing commands to `FileCommands.cs`.
+- Added conversation utilities `conversation-length`, `conversation-last`,
+  `conversation-search`, `delete-conversation-range`, `conversation-first`,
+  `conversation-range`, `conversation-info`, `list-conversation`,
+  `conversation-at`, `delete-conversation-before`, `delete-conversation-after`,
+  `delete-conversation-contains`, and `reverse-conversation` in
+  `AdditionalCommands.cs`.
+- Moved `clear-summaries` into `SummaryCommands.cs`.
+- Split task management commands into `TaskCommands.cs` and tool operations into
+  `ToolCommands.cs`; registered these modules in `Program.cs` and pruned the
+  root command list.
+- Moved conversation commands `clear-conversation`, `conversation`, `save-conversation`, `export-conversation`, `import-conversation`, `append-conversation`, `delete-conversation-message`, `summarize-conversation`, `conversation-stats`, `conversation-char-count`, `conversation-word-count`, `compress-conversation`, and `clear-history` into `ConversationCommands.cs` and registered the module.
+- Moved memory management commands into `MemoryCommands.cs` and registered the module.
+- Created `StateCommands.cs` for state inspection and working directory commands.
+- Relocated path helper commands `tasks-path`, `conversation-path`, `summaries-path`, and `tools-path` into `PathCommands.cs`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -209,3 +247,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
 - Hook up automatic conversation compression to LLM summarization.
 - Implement RPC-based event streaming for subscriptions in the .NET CLI.
+- Continue migrating commands from `Program.cs` into dedicated modules.
