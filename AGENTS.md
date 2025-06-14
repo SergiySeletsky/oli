@@ -92,6 +92,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `delete-summary-range`.
 - Added task utilities `add-output-tokens` and `task-duration`.
 - Added `subscription-count` command to show active subscription total.
+- Added utility commands `estimate-tokens`, `extract-metadata`, `tool-description`,
+  `has-active-tasks`, `task-statuses`, `validate-api-key`, `determine-provider`,
+  `display-to-session`, `session-to-display`, and `summarize-text`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -105,3 +108,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Begin porting LSP-based code intelligence features.
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
 - Hook up automatic conversation compression to LLM summarization.
+- Implement RPC-based event streaming for subscriptions in the .NET CLI.
