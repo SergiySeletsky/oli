@@ -1301,6 +1301,136 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, recentDaysOpt);
 
+        // tasks-pending
+        var tasksPendingCmd = new Command("tasks-pending", "List tasks in progress");
+        tasksPendingCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "in-progress"))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-success
+        var tasksSuccessCmd = new Command("tasks-success", "List completed tasks");
+        tasksSuccessCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status.StartsWith("completed")))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-by-updated
+        var tasksByUpdatedCmd = new Command("tasks-by-updated", "List tasks by last update");
+        tasksByUpdatedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.OrderByDescending(t => t.UpdatedAt))
+                Console.WriteLine($"{t.UpdatedAt:u} {t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // list-tool-ids
+        var listToolIdsCmd = new Command("list-tool-ids", "List tool execution IDs");
+        listToolIdsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var id in state.ToolExecutions.Select(te => te.Id))
+                Console.WriteLine(id);
+            await Task.CompletedTask;
+        });
+
+        // tool-metadata
+        var toolMetaIdArg = new Argument<string>("id");
+        var toolMetadataCmd = new Command("tool-metadata", "Show tool execution metadata") { toolMetaIdArg };
+        toolMetadataCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(te => te.Id == id);
+            if (tool?.Metadata != null)
+            {
+                foreach (var kv in tool.Metadata)
+                    Console.WriteLine($"{kv.Key}: {kv.Value}");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, toolMetaIdArg);
+
+        // export-tool-run
+        var exportToolIdArg = new Argument<string>("id");
+        var exportToolPathArg = new Argument<string>("path");
+        var exportToolCmd = new Command("export-tool-run", "Export tool execution to file")
+        { exportToolIdArg, exportToolPathArg };
+        exportToolCmd.SetHandler(async (string id, string path) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(te => te.Id == id);
+            if (tool != null)
+            {
+                var json = JsonSerializer.Serialize(tool, new JsonSerializerOptions { WriteIndented = true });
+                await File.WriteAllTextAsync(path, json);
+                Console.WriteLine("exported");
+            }
+            else Console.WriteLine("tool not found");
+        }, exportToolIdArg, exportToolPathArg);
+
+        // import-tool-run
+        var importToolPathArg = new Argument<string>("path");
+        var importToolCmd = new Command("import-tool-run", "Import tool execution from file") { importToolPathArg };
+        importToolCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file missing"); return; }
+            var json = await File.ReadAllTextAsync(path);
+            var tool = JsonSerializer.Deserialize<ToolExecution>(json);
+            if (tool != null)
+            {
+                var state = Program.LoadState();
+                state.ToolExecutions.Add(tool);
+                Program.SaveState(state);
+                Console.WriteLine("imported");
+            }
+        }, importToolPathArg);
+
+        // clear-tools
+        var clearToolsCmd = new Command("clear-tools", "Remove all tool executions");
+        clearToolsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.ToolExecutions.Clear();
+            Program.SaveState(state);
+            Console.WriteLine("cleared");
+            await Task.CompletedTask;
+        });
+
+        // backup-path
+        var backupPathCmd = new Command("backup-path", "Show backup directory");
+        backupPathCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(BackupUtils.BackupDir);
+            await Task.CompletedTask;
+        });
+
+        // open-backups
+        var openBackupsCmd = new Command("open-backups", "Open backup directory");
+        openBackupsCmd.SetHandler(async () =>
+        {
+            Process.Start("xdg-open", BackupUtils.BackupDir);
+            await Task.CompletedTask;
+        });
+
+        // trim-log
+        var trimLinesArg = new Argument<int>("lines");
+        var trimLogCmd = new Command("trim-log", "Trim log file to N lines") { trimLinesArg };
+        trimLogCmd.SetHandler(async (int lines) =>
+        {
+            if (!File.Exists(LogUtils.LogPath)) { Console.WriteLine("no log"); return; }
+            var all = File.ReadAllLines(LogUtils.LogPath).TakeLast(lines).ToArray();
+            File.WriteAllLines(LogUtils.LogPath, all);
+            Console.WriteLine("trimmed");
+            await Task.CompletedTask;
+        }, trimLinesArg);
+
         root.Add(searchMemCmd);
         root.Add(convExistsCmd);
         root.Add(convHasCmd);
@@ -1309,6 +1439,17 @@ public static class AdditionalCommands
         root.Add(sortLinesCmd);
         root.Add(removeEmptyCmd);
         root.Add(tasksRecentCmd);
+        root.Add(tasksPendingCmd);
+        root.Add(tasksSuccessCmd);
+        root.Add(tasksByUpdatedCmd);
+        root.Add(listToolIdsCmd);
+        root.Add(toolMetadataCmd);
+        root.Add(exportToolCmd);
+        root.Add(importToolCmd);
+        root.Add(clearToolsCmd);
+        root.Add(backupPathCmd);
+        root.Add(openBackupsCmd);
+        root.Add(trimLogCmd);
 
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };
