@@ -23,3 +23,23 @@ repository.
 ## Pull Requests
 - Fill out `.github/pull_request_template.md` when creating a PR.
 - Link any relevant issues in the description.
+
+## .NET CLI Port Plan
+
+This repository is migrating the original Rust-based CLI to a .NET implementation. Automated agents should maintain the progress notes below and update them as work continues.
+
+### Plan
+1. Recreate existing `oli` commands using `System.CommandLine` in the `OLI.NetCli` project.
+2. Persist CLI state (such as selected model and agent mode) in a file.
+3. Integrate LLM capabilities using packages like [AutoGen.NET](https://github.com/microsoft/autogen) or [Semantic Kernel](https://github.com/microsoft/semantic-kernel).
+4. Achieve feature parity with the Rust CLI before deprecating it.
+
+### Accomplished
+- Created the `dotnet/OLI.NetCli` project with `run`, `agent-mode`, and `models` commands.
+- Added basic JSON-based state persistence in `Program.cs`.
+
+### TODO for Next Run
+- Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
+- Bring over conversation history and tool integration features from the Rust CLI.
+- Add unit tests and CI for the .NET CLI.
+- Continue updating this section with progress and next steps.
