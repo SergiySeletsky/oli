@@ -375,6 +375,45 @@ class Program
             await Task.CompletedTask;
         }, addTokensIdOpt, tokensOpt);
 
+        var addOutputTokensCmd = new Command("add-output-tokens", "Increment output tokens")
+        {
+            addTokensIdOpt, tokensOpt
+        };
+        addOutputTokensCmd.SetHandler(async (string id, int tokens) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                task.OutputTokens += tokens;
+                task.UpdatedAt = DateTime.UtcNow;
+                SaveState(state);
+                Console.WriteLine($"Added {tokens} output tokens");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, addTokensIdOpt, tokensOpt);
+
+        var taskDurationCmd = new Command("task-duration", "Show task duration") { statsIdOpt };
+        taskDurationCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                var duration = (task.UpdatedAt - task.CreatedAt).TotalSeconds;
+                Console.WriteLine(duration);
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, statsIdOpt);
+
         var toolIdOpt = new Option<string>("--id") { IsRequired = true };
         var addToolUseCmd = new Command("add-tool-use", "Increment tool count")
         {
@@ -1313,6 +1352,57 @@ class Program
             await Task.CompletedTask;
         }, deleteSummaryIndexOpt);
 
+        var latestSummaryCmd = new Command("latest-summary", "Show the latest summary");
+        latestSummaryCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            if (state.ConversationSummaries.Count == 0)
+            {
+                Console.WriteLine("none");
+                await Task.CompletedTask;
+                return;
+            }
+            var last = state.ConversationSummaries[^1];
+            Console.WriteLine(last.Content);
+            await Task.CompletedTask;
+        });
+
+        var summaryInfoIndexOpt = new Option<int>("--index") { IsRequired = true };
+        var summaryInfoCmd = new Command("summary-info", "Show summary details") { summaryInfoIndexOpt };
+        summaryInfoCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.ConversationSummaries.Count)
+            {
+                var s = state.ConversationSummaries[index];
+                Console.WriteLine(JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            else
+            {
+                Console.WriteLine("Invalid index");
+            }
+            await Task.CompletedTask;
+        }, summaryInfoIndexOpt);
+
+        var startRangeOpt = new Option<int>("--start") { IsRequired = true };
+        var endRangeOpt = new Option<int>("--end") { IsRequired = true };
+        var deleteSummaryRangeCmd = new Command("delete-summary-range", "Delete summaries in range") { startRangeOpt, endRangeOpt };
+        deleteSummaryRangeCmd.SetHandler(async (int start, int end) =>
+        {
+            var state = LoadState();
+            if (start >= 0 && end >= start && end < state.ConversationSummaries.Count)
+            {
+                state.ConversationSummaries.RemoveRange(start, end - start + 1);
+                SaveState(state);
+                Console.WriteLine("Summaries removed");
+            }
+            else
+            {
+                Console.WriteLine("Invalid range");
+            }
+            await Task.CompletedTask;
+        }, startRangeOpt, endRangeOpt);
+
         var readPathOption = new Option<string>("--path") { IsRequired = true };
         var readFileCmd = new Command("read-file", "Read file contents") { readPathOption };
         readFileCmd.SetHandler(async (string path) =>
@@ -1659,6 +1749,14 @@ class Program
             return Task.CompletedTask;
         });
 
+        var subscriptionCountCmd = new Command("subscription-count", "Number of active subscriptions");
+        subscriptionCountCmd.SetHandler(() =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.Subscriptions.Count);
+            return Task.CompletedTask;
+        });
+
         var deleteSectionOption = new Option<string>("--section") { IsRequired = true };
         var deleteMemorySectionCmd = new Command("delete-memory-section", "Remove a memory section")
         {
@@ -1818,6 +1916,34 @@ class Program
             await Task.CompletedTask;
         });
 
+        var tasksPathCmd = new Command("tasks-path", "Show tasks file path");
+        tasksPathCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(TasksPath);
+            await Task.CompletedTask;
+        });
+
+        var conversationPathCmd = new Command("conversation-path", "Show conversation file path");
+        conversationPathCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(ConversationPath);
+            await Task.CompletedTask;
+        });
+
+        var summariesPathCmd = new Command("summaries-path", "Show summaries file path");
+        summariesPathCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(SummariesPath);
+            await Task.CompletedTask;
+        });
+
+        var toolsPathCmd = new Command("tools-path", "Show tools file path");
+        toolsPathCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(ToolsPath);
+            await Task.CompletedTask;
+        });
+
         var versionCmd = new Command("version", "Display CLI version");
         versionCmd.SetHandler(async () =>
         {
@@ -1887,10 +2013,13 @@ class Program
             deleteTaskCmd, taskInfoCmd, taskStatsCmd,
             addInputTokensCmd, addToolUseCmd, startToolCmd, updateToolCmd, completeToolCmd, failToolCmd, cleanupToolsCmd, listToolsCmd, toolInfoCmd, toolCountCmd, runningToolsCmd, listToolsByTaskCmd, deleteToolCmd, setToolMetaCmd, exportToolsCmd, importToolsCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
-            listMemorySectionsCmd, appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
-            memoryExistsCmd, subscribeCmd, unsubscribeCmd,
+            listMemorySectionsCmd, tasksPathCmd, conversationPathCmd, summariesPathCmd, toolsPathCmd,
+            appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
+            memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
             importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, exportConvCmd, deleteConvMsgCmd,
+            latestSummaryCmd, summaryInfoCmd, deleteSummaryRangeCmd,
+            addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd
         };
 
