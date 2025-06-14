@@ -8,6 +8,11 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+// Local utilities
+using static FileUtils;
+using static JsonUtils;
+using static MemoryUtils;
+
 class Program
 {
     static readonly string StatePath = Path.Combine(AppContext.BaseDirectory, "state.json");
@@ -1190,6 +1195,22 @@ class Program
             await Task.CompletedTask;
         }, linesStartOpt, linesEndOpt);
 
+        var memHeadLinesOpt = new Option<int>("--lines", () => 10);
+        var memoryHeadCmd = new Command("memory-head", "Show first lines of memory") { memHeadLinesOpt };
+        memoryHeadCmd.SetHandler(async (int lines) =>
+        {
+            Console.WriteLine(MemoryUtils.Head(MemoryPath, lines));
+            await Task.CompletedTask;
+        }, memHeadLinesOpt);
+
+        var memTailLinesOpt = new Option<int>("--lines", () => 10);
+        var memoryTailCmd = new Command("memory-tail", "Show last lines of memory") { memTailLinesOpt };
+        memoryTailCmd.SetHandler(async (int lines) =>
+        {
+            Console.WriteLine(MemoryUtils.Tail(MemoryPath, lines));
+            await Task.CompletedTask;
+        }, memTailLinesOpt);
+
         var insertIndexOpt = new Option<int>("--index") { IsRequired = true };
         var insertTextOpt = new Option<string>("--text") { IsRequired = true };
         var insertMemoryCmd = new Command("insert-memory-lines", "Insert lines into memory file") { insertIndexOpt, insertTextOpt };
@@ -2109,6 +2130,56 @@ class Program
             await Task.CompletedTask;
         }, readPathOption);
 
+        var touchFileCmd = new Command("touch-file", "Create empty file if missing") { readPathOption };
+        touchFileCmd.SetHandler(async (string path) =>
+        {
+            FileUtils.Touch(path);
+            Console.WriteLine($"Touched {path}");
+            await Task.CompletedTask;
+        }, readPathOption);
+
+        var copyDirDestOpt = new Option<string>("--dest") { IsRequired = true };
+        var copyDirCmd = new Command("copy-directory", "Copy directory recursively") { dirPathOption, copyDirDestOpt };
+        copyDirCmd.SetHandler(async (string path, string dest) =>
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            FileUtils.CopyDirectory(path, dest);
+            Console.WriteLine($"Copied {path} to {dest}");
+            await Task.CompletedTask;
+        }, dirPathOption, copyDirDestOpt);
+
+        var moveDirDestOpt = new Option<string>("--dest") { IsRequired = true };
+        var moveDirCmd = new Command("move-directory", "Move directory recursively") { dirPathOption, moveDirDestOpt };
+        moveDirCmd.SetHandler(async (string path, string dest) =>
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            FileUtils.MoveDirectory(path, dest);
+            Console.WriteLine($"Moved {path} to {dest}");
+            await Task.CompletedTask;
+        }, dirPathOption, moveDirDestOpt);
+
+        var renameDirNameOpt = new Option<string>("--name") { IsRequired = true };
+        var renameDirCmd = new Command("rename-directory", "Rename directory") { dirPathOption, renameDirNameOpt };
+        renameDirCmd.SetHandler(async (string path, string name) =>
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            FileUtils.RenameDirectory(path, name);
+            Console.WriteLine($"Renamed {path} to {name}");
+            await Task.CompletedTask;
+        }, dirPathOption, renameDirNameOpt);
+
         var dirPathOption = new Option<string>("--path", () => ".");
         var listDirCmd = new Command("list-directory", "List directory contents") { dirPathOption };
         listDirCmd.SetHandler(async (string path) =>
@@ -2336,6 +2407,43 @@ class Program
             var count = text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
             Console.WriteLine(count);
         }, readPathOption);
+
+        var readJsonCmd = new Command("read-json", "Pretty print JSON file") { readPathOption };
+        readJsonCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            Console.WriteLine(JsonUtils.ReadPretty(path));
+            await Task.CompletedTask;
+        }, readPathOption);
+
+        var jsonInputOpt = new Option<string>("--json") { IsRequired = true };
+        var writeJsonCmd = new Command("write-json", "Write JSON to file") { readPathOption, jsonInputOpt };
+        writeJsonCmd.SetHandler(async (string path, string json) =>
+        {
+            JsonUtils.Write(path, json);
+            Console.WriteLine("JSON written");
+            await Task.CompletedTask;
+        }, readPathOption, jsonInputOpt);
+
+        var formatJsonCmd = new Command("json-format", "Format JSON string") { jsonInputOpt };
+        formatJsonCmd.SetHandler(async (string json) =>
+        {
+            Console.WriteLine(JsonUtils.Format(json));
+            await Task.CompletedTask;
+        }, jsonInputOpt);
+
+        var diffPathBOpt = new Option<string>("--other") { IsRequired = true };
+        var jsonDiffCmd = new Command("json-diff", "Diff two JSON files") { readPathOption, diffPathBOpt };
+        jsonDiffCmd.SetHandler(async (string path, string other) =>
+        {
+            if (!File.Exists(path) || !File.Exists(other))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            Console.WriteLine(JsonUtils.Diff(path, other));
+            await Task.CompletedTask;
+        }, readPathOption, diffPathBOpt);
 
         var currentModelCmd = new Command("current-model", "Show selected model index");
         currentModelCmd.SetHandler(() =>
@@ -2738,7 +2846,7 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
-            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd, memoryLinesCmd, insertMemoryCmd, replaceMemoryLinesCmd,
+            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd, memoryLinesCmd, memoryHeadCmd, memoryTailCmd, insertMemoryCmd, replaceMemoryLinesCmd,
             summarizeCmd, convStatsCmd,
             convCharCountCmd, convWordCountCmd, summaryCountCmd, clearSummariesCmd, compressConvCmd,
             clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
@@ -2750,7 +2858,7 @@ class Program
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
             genWriteDiffCmd, genEditDiffCmd, copyFileCmd, moveFileCmd, renameFileCmd,
-            deleteFileCmd, fileExistsCmd, listDirCmd, listDirRecursiveCmd, headFileCmd, tailFileCmd, fileSizeCmd, createDirCmd, deleteDirCmd, dirExistsCmd, fileInfoCmd, countLinesCmd,
+            deleteFileCmd, fileExistsCmd, touchFileCmd, listDirCmd, listDirRecursiveCmd, headFileCmd, tailFileCmd, fileSizeCmd, createDirCmd, deleteDirCmd, dirExistsCmd, copyDirCmd, moveDirCmd, renameDirCmd, fileInfoCmd, countLinesCmd,
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
             deleteTaskCmd, taskInfoCmd, latestTaskCmd, inProgressCmd, taskDescCmd, taskStatsCmd,
@@ -2766,6 +2874,7 @@ class Program
             setWorkingDirCmd, currentDirCmd,
             lspStartCmd, lspStopCmd, lspStopAllCmd, lspListCmd, lspInfoCmd,
             readBinaryCmd, writeBinaryCmd, fileHashCmd, fileWordCountCmd,
+            readJsonCmd, writeJsonCmd, formatJsonCmd, jsonDiffCmd,
             runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd,
             purgeFailedCmd, tasksOverviewCmd,
             lspSymbolsCmd, lspCodeLensCmd, lspTokensCmd, lspDefCmd, lspRootCmd

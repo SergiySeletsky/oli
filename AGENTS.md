@@ -113,6 +113,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added shell execution command `run-command`.
 - Introduced simple RPC server with `start-rpc`, `stop-rpc`, `rpc-running`, and `rpc-notify` commands.
 - Added task maintenance commands `purge-failed-tasks` and `tasks-overview`.
+- Added file utilities `touch-file`, `copy-directory`, `move-directory`, and `rename-directory`.
+- Added JSON helpers `read-json`, `write-json`, `json-format`, and `json-diff`.
+- Added memory inspection commands `memory-head` and `memory-tail`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
