@@ -75,6 +75,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Implemented commands `conversation-char-count`, `summary-count`,
   `compress-conversation`, `clear-history`, `show-summaries`, `export-summaries`,
   `import-summaries`, and `delete-summary`.
+- Added task commands `fail-task`, `current-task`, and `set-current-task` with
+  tracking of the active task ID.
+- Introduced tool execution tracking persisted to `tools.json` with commands
+  `start-tool`, `update-tool-progress`, `complete-tool`, `fail-tool`,
+  `cleanup-tools`, `list-tools`, `tool-info`, `tool-count`, and `running-tools`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

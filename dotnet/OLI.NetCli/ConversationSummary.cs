@@ -5,4 +5,3 @@ public class ConversationSummary
     public int MessagesCount { get; set; }
     public int OriginalChars { get; set; }
 }
-

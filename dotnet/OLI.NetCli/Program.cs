@@ -26,6 +26,8 @@ public class AppState
     public List<string> Conversation { get; set; } = new();
     public List<ConversationSummary> ConversationSummaries { get; set; } = new();
     public List<TaskRecord> Tasks { get; set; } = new();
+    public string? CurrentTaskId { get; set; }
+    public List<ToolExecution> ToolExecutions { get; set; } = new();
     public HashSet<string> Subscriptions { get; set; } = new();
 }
 
@@ -35,6 +37,7 @@ class Program
     static readonly string TasksPath = Path.Combine(AppContext.BaseDirectory, "tasks.json");
     static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
     static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
+    static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
     static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
 
     static List<TaskRecord> LoadTasks()
@@ -57,9 +60,24 @@ class Program
         return new();
     }
 
+    static List<ToolExecution> LoadTools()
+    {
+        if (File.Exists(ToolsPath))
+        {
+            var json = File.ReadAllText(ToolsPath);
+            return JsonSerializer.Deserialize<List<ToolExecution>>(json) ?? new();
+        }
+        return new();
+    }
+
     static void SaveTasks(List<TaskRecord> tasks)
     {
         File.WriteAllText(TasksPath, JsonSerializer.Serialize(tasks, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    static void SaveTools(List<ToolExecution> tools)
+    {
+        File.WriteAllText(ToolsPath, JsonSerializer.Serialize(tools, new JsonSerializerOptions { WriteIndented = true }));
     }
 
     static List<string> LoadConversation()
@@ -86,6 +104,7 @@ class Program
         state.Tasks = LoadTasks();
         state.Conversation = LoadConversation();
         state.ConversationSummaries = LoadSummaries();
+        state.ToolExecutions = LoadTools();
         return state;
     }
 
@@ -95,6 +114,7 @@ class Program
         SaveTasks(state.Tasks);
         SaveConversation(state.Conversation);
         SaveSummaries(state.ConversationSummaries);
+        SaveTools(state.ToolExecutions);
     }
 
     static int Main(string[] args)
@@ -194,6 +214,7 @@ class Program
                 UpdatedAt = DateTime.UtcNow
             };
             state.Tasks.Add(task);
+            state.CurrentTaskId = task.Id;
             SaveState(state);
             Console.WriteLine($"Created task {task.Id}");
             await Task.CompletedTask;
@@ -214,6 +235,7 @@ class Program
                 task.Status = "completed";
                 task.OutputTokens = outputTokens;
                 task.UpdatedAt = DateTime.UtcNow;
+                state.CurrentTaskId = null;
                 SaveState(state);
                 Console.WriteLine("Task completed");
             }
@@ -223,6 +245,60 @@ class Program
             }
             await Task.CompletedTask;
         }, completeIdOption, outputTokensOption);
+
+        var failIdOpt = new Option<string>("--id") { IsRequired = true };
+        var errorOpt = new Option<string>("--error") { IsRequired = true };
+        var failTaskCmd = new Command("fail-task", "Mark a task as failed")
+        {
+            failIdOpt, errorOpt
+        };
+        failTaskCmd.SetHandler(async (string id, string error) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                task.Status = $"failed:{error}";
+                task.UpdatedAt = DateTime.UtcNow;
+                state.CurrentTaskId = null;
+                SaveState(state);
+                Console.WriteLine("Task failed");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, failIdOpt, errorOpt);
+
+        var currentTaskCmd = new Command("current-task", "Show current task id");
+        currentTaskCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.CurrentTaskId ?? "none");
+            await Task.CompletedTask;
+        });
+
+        var setCurrentIdOpt = new Option<string>("--id") { IsRequired = true };
+        var setCurrentTaskCmd = new Command("set-current-task", "Set current task id")
+        {
+            setCurrentIdOpt
+        };
+        setCurrentTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            if (state.Tasks.Any(t => t.Id == id))
+            {
+                state.CurrentTaskId = id;
+                SaveState(state);
+                Console.WriteLine($"Current task set to {id}");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, setCurrentIdOpt);
 
         var cancelIdOption = new Option<string>("--id", () => string.Empty, "Task id to cancel");
         var cancelTaskCmd = new Command("cancel-task", "Cancel a task by id")
@@ -356,6 +432,153 @@ class Program
             }
             await Task.CompletedTask;
         }, statusOpt);
+
+        var startToolTaskOpt = new Option<string>("--task-id") { IsRequired = true };
+        var startToolNameOpt = new Option<string>("--name") { IsRequired = true };
+        var startToolCmd = new Command("start-tool", "Begin tool execution")
+        {
+            startToolTaskOpt, startToolNameOpt
+        };
+        startToolCmd.SetHandler(async (string taskId, string name) =>
+        {
+            var state = LoadState();
+            var exec = new ToolExecution
+            {
+                TaskId = taskId,
+                Name = name,
+                Message = "starting"
+            };
+            state.ToolExecutions.Add(exec);
+            SaveState(state);
+            Console.WriteLine(exec.Id);
+            await Task.CompletedTask;
+        }, startToolTaskOpt, startToolNameOpt);
+
+        var toolIdOpt2 = new Option<string>("--id") { IsRequired = true };
+        var msgOpt = new Option<string>("--message") { IsRequired = true };
+        var updateToolCmd = new Command("update-tool-progress", "Update tool message")
+        {
+            toolIdOpt2, msgOpt
+        };
+        updateToolCmd.SetHandler(async (string id, string message) =>
+        {
+            var state = LoadState();
+            var tool = state.ToolExecutions.Find(t => t.Id == id);
+            if (tool != null)
+            {
+                tool.Message = message;
+                SaveState(state);
+                Console.WriteLine("updated");
+            }
+            else
+            {
+                Console.WriteLine("Tool not found");
+            }
+            await Task.CompletedTask;
+        }, toolIdOpt2, msgOpt);
+
+        var completeToolCmd = new Command("complete-tool", "Finish tool execution")
+        {
+            toolIdOpt2, msgOpt
+        };
+        completeToolCmd.SetHandler(async (string id, string message) =>
+        {
+            var state = LoadState();
+            var tool = state.ToolExecutions.Find(t => t.Id == id);
+            if (tool != null)
+            {
+                tool.Message = message;
+                tool.Status = "success";
+                tool.EndTime = DateTime.UtcNow;
+                SaveState(state);
+                Console.WriteLine("completed");
+            }
+            else
+            {
+                Console.WriteLine("Tool not found");
+            }
+            await Task.CompletedTask;
+        }, toolIdOpt2, msgOpt);
+
+        var failToolCmd = new Command("fail-tool", "Mark tool execution failed")
+        {
+            toolIdOpt2, msgOpt
+        };
+        failToolCmd.SetHandler(async (string id, string message) =>
+        {
+            var state = LoadState();
+            var tool = state.ToolExecutions.Find(t => t.Id == id);
+            if (tool != null)
+            {
+                tool.Message = message;
+                tool.Status = "error";
+                tool.EndTime = DateTime.UtcNow;
+                SaveState(state);
+                Console.WriteLine("failed");
+            }
+            else
+            {
+                Console.WriteLine("Tool not found");
+            }
+            await Task.CompletedTask;
+        }, toolIdOpt2, msgOpt);
+
+        var cleanupToolsCmd = new Command("cleanup-tools", "Remove old tool executions");
+        cleanupToolsCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var cutoff = DateTime.UtcNow.AddMinutes(-10);
+            state.ToolExecutions.RemoveAll(t => t.EndTime.HasValue && t.EndTime < cutoff);
+            SaveState(state);
+            Console.WriteLine("cleaned");
+            await Task.CompletedTask;
+        });
+
+        var listToolsCmd = new Command("list-tools", "List tool executions");
+        listToolsCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            foreach (var t in state.ToolExecutions)
+            {
+                Console.WriteLine($"{t.Id}: {t.Name} [{t.Status}] {t.Message}");
+            }
+            await Task.CompletedTask;
+        });
+
+        var toolInfoCmd = new Command("tool-info", "Show tool details") { toolIdOpt2 };
+        toolInfoCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var tool = state.ToolExecutions.Find(t => t.Id == id);
+            if (tool != null)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(tool, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            else
+            {
+                Console.WriteLine("Tool not found");
+            }
+            await Task.CompletedTask;
+        }, toolIdOpt2);
+
+        var toolCountCmd = new Command("tool-count", "Number of tool executions");
+        toolCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.ToolExecutions.Count);
+            await Task.CompletedTask;
+        });
+
+        var runningToolsCmd = new Command("running-tools", "List running tools");
+        runningToolsCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            foreach (var t in state.ToolExecutions.Where(te => te.Status == "running"))
+            {
+                Console.WriteLine($"{t.Id}: {t.Name} {t.Message}");
+            }
+            await Task.CompletedTask;
+        });
 
         var updateDescIdOpt = new Option<string>("--id") { IsRequired = true };
         var updateDescOpt = new Option<string>("--description") { IsRequired = true };
@@ -1510,7 +1733,7 @@ class Program
         var root = new RootCommand("oli .NET CLI")
         {
             runCmd, agentCmd, agentStatusCmd, setModelCmd, modelsCmd,
-            tasksCmd, createTaskCmd, completeTaskCmd, cancelTaskCmd,
+            tasksCmd, createTaskCmd, completeTaskCmd, failTaskCmd, currentTaskCmd, setCurrentTaskCmd, cancelTaskCmd,
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
@@ -1526,7 +1749,7 @@ class Program
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
             deleteTaskCmd, taskInfoCmd, taskStatsCmd,
-            addInputTokensCmd, addToolUseCmd, resetStateCmd,
+            addInputTokensCmd, addToolUseCmd, startToolCmd, updateToolCmd, completeToolCmd, failToolCmd, cleanupToolsCmd, listToolsCmd, toolInfoCmd, toolCountCmd, runningToolsCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
             listMemorySectionsCmd, appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd,
