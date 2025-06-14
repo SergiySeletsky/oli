@@ -188,6 +188,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added task control commands `pause-task` and `resume-task`.
 - Added task notes commands `set-task-notes`, `show-task-notes`, and `append-task-notes`.
 - Added conversation comparison via `conversation-diff` and backup helper `latest-backup`.
+- Added bulk task controls `pause-all-tasks` and `resume-all-tasks`.
+- Added `delete-task-notes`, `list-task-ids`, and archival commands `archive-task` and `unarchive-task`.
+- Added `archived-tasks`, `tasks-created-before`, and `tasks-created-after` for date filtering.
+- Added helpers `open-latest-backup` and `rpc-notify-file`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.

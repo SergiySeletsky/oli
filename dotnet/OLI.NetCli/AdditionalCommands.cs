@@ -1759,6 +1759,152 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, appendNotesId, appendNotesText);
 
+        // delete-task-notes
+        var delNotesId = new Argument<string>("id");
+        var deleteNotesCmd = new Command("delete-task-notes", "Remove notes from a task") { delNotesId };
+        deleteNotesCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Notes = string.Empty;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("notes cleared");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, delNotesId);
+
+        // pause-all-tasks
+        var pauseAllCmd = new Command("pause-all-tasks", "Pause every task");
+        pauseAllCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status != "paused"))
+            {
+                t.Status = "paused";
+                t.UpdatedAt = DateTime.UtcNow;
+            }
+            Program.SaveState(state);
+            Console.WriteLine("paused all");
+            await Task.CompletedTask;
+        });
+
+        // resume-all-tasks
+        var resumeAllCmd = new Command("resume-all-tasks", "Resume all paused tasks");
+        resumeAllCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "paused"))
+            {
+                t.Status = "in-progress";
+                t.UpdatedAt = DateTime.UtcNow;
+            }
+            Program.SaveState(state);
+            Console.WriteLine("resumed all");
+            await Task.CompletedTask;
+        });
+
+        // list-task-ids
+        var listIdsCmd = new Command("list-task-ids", "Display only task ids");
+        listIdsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks) Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        });
+
+        // archive-task
+        var archiveTaskId = new Argument<string>("id");
+        var archiveTaskCmd = new Command("archive-task", "Archive a completed task") { archiveTaskId };
+        archiveTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Status = "archived";
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("archived");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, archiveTaskId);
+
+        // unarchive-task
+        var unarchiveTaskId = new Argument<string>("id");
+        var unarchiveTaskCmd = new Command("unarchive-task", "Restore an archived task") { unarchiveTaskId };
+        unarchiveTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null && task.Status == "archived")
+            {
+                task.Status = "in-progress";
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("unarchived");
+            }
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, unarchiveTaskId);
+
+        // archived-tasks
+        var archivedTasksCmd = new Command("archived-tasks", "List archived tasks");
+        archivedTasksCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "archived"))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-created-before
+        var beforeDateOpt = new Option<DateTime>("--before", "Created before date") { IsRequired = true };
+        var tasksBeforeCmd = new Command("tasks-created-before", "List tasks created before date") { beforeDateOpt };
+        tasksBeforeCmd.SetHandler(async (DateTime before) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt < before))
+                Console.WriteLine($"{t.Id} {t.Description} {t.CreatedAt:u}");
+            await Task.CompletedTask;
+        }, beforeDateOpt);
+
+        // tasks-created-after
+        var afterDateOpt = new Option<DateTime>("--after", "Created after date") { IsRequired = true };
+        var tasksAfterCmd = new Command("tasks-created-after", "List tasks created after date") { afterDateOpt };
+        tasksAfterCmd.SetHandler(async (DateTime after) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt > after))
+                Console.WriteLine($"{t.Id} {t.Description} {t.CreatedAt:u}");
+            await Task.CompletedTask;
+        }, afterDateOpt);
+
+        // open-latest-backup
+        var openBackupCmd = new Command("open-latest-backup", "Open the most recent backup file");
+        openBackupCmd.SetHandler(async () =>
+        {
+            var path = BackupUtils.LatestBackup();
+            if (path != null) System.Diagnostics.Process.Start("xdg-open", path);
+            else Console.WriteLine("none");
+            await Task.CompletedTask;
+        });
+
+        // rpc-notify-file
+        var notifyFileArg = new Argument<string>("path");
+        var rpcNotifyFileCmd = new Command("rpc-notify-file", "Send file contents via RPC notify") { notifyFileArg };
+        rpcNotifyFileCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = await File.ReadAllTextAsync(path);
+            RpcServer.Notify(JsonSerializer.Deserialize<object>(json) ?? new());
+            await Task.CompletedTask;
+        }, notifyFileArg);
+
         // conversation-diff
         var convDiffArg = new Argument<string>("file");
         var convDiffCmd = new Command("conversation-diff", "Diff current conversation with file") { convDiffArg };
@@ -1891,9 +2037,20 @@ public static class AdditionalCommands
         root.Add(tasksPausedCmd);
         root.Add(pauseTaskCmd);
         root.Add(resumeTaskCmd);
+        root.Add(pauseAllCmd);
+        root.Add(resumeAllCmd);
         root.Add(setNotesCmd);
         root.Add(showNotesCmd);
         root.Add(appendNotesCmd);
+        root.Add(deleteNotesCmd);
+        root.Add(listIdsCmd);
+        root.Add(archiveTaskCmd);
+        root.Add(unarchiveTaskCmd);
+        root.Add(archivedTasksCmd);
+        root.Add(tasksBeforeCmd);
+        root.Add(tasksAfterCmd);
+        root.Add(openBackupCmd);
+        root.Add(rpcNotifyFileCmd);
         root.Add(convDiffCmd);
         root.Add(latestBackupCmd);
         root.Add(exportMdCmd);
