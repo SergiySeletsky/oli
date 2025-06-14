@@ -108,13 +108,18 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation commands `conversation-word-count` and `clear-summaries`.
 - Added task helpers `latest-task`, `tasks-in-progress`, and `task-descriptions`.
 - Added state inspection commands `state-version`, `state-summary`, and `state-files`.
+- Added binary file helpers `read-binary-file` and `write-binary-file`.
+- Added file hashing via `file-hash` and word counting with `file-word-count`.
+- Added shell execution command `run-command`.
+- Introduced simple RPC server with `start-rpc`, `stop-rpc`, `rpc-running`, and `rpc-notify` commands.
+- Added task maintenance commands `purge-failed-tasks` and `tasks-overview`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
 - Persist conversation history and implement tool integrations similar to the Rust backend.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
-- Add real-time event streaming support to mirror Rust subscriptions.
+- Expand RPC server capabilities to support real-time event streaming and subscription handling.
 - Replace basic diff implementation with a robust algorithm and hook up LLM
   summarization for conversation utilities.
 - Improve search commands to respect ignore files and binary detection.

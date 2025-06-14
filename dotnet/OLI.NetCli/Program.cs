@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.Linq;
 using System.IO;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -466,6 +467,29 @@ class Program
             }
             await Task.CompletedTask;
         }, statusOpt);
+
+        var purgeFailedCmd = new Command("purge-failed-tasks", "Remove failed tasks");
+        purgeFailedCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            state.Tasks.RemoveAll(t => t.Status == "failed");
+            SaveState(state);
+            Console.WriteLine("Failed tasks removed");
+            await Task.CompletedTask;
+        });
+
+        var tasksOverviewCmd = new Command("tasks-overview", "Show count by status");
+        tasksOverviewCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var groups = state.Tasks.GroupBy(t => t.Status);
+            foreach (var g in groups)
+            {
+                Console.WriteLine($"{g.Key}: {g.Count()}");
+            }
+            Console.WriteLine($"Total: {state.Tasks.Count}");
+            await Task.CompletedTask;
+        });
 
         var startToolTaskOpt = new Option<string>("--task-id") { IsRequired = true };
         var startToolNameOpt = new Option<string>("--name") { IsRequired = true };
@@ -1670,6 +1694,52 @@ class Program
             await Task.CompletedTask;
         }, summarizeTextOpt);
 
+        var cmdOpt = new Option<string>("--cmd") { IsRequired = true };
+        var runCommandCmd = new Command("run-command", "Execute shell command") { cmdOpt };
+        runCommandCmd.SetHandler(async (string cmd) =>
+        {
+            try
+            {
+                var proc = System.Diagnostics.Process.Start("bash", ["-c", cmd]);
+                if (proc != null)
+                {
+                    proc.WaitForExit();
+                    Console.WriteLine(proc.ExitCode);
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Error: {e.Message}");
+            }
+            await Task.CompletedTask;
+        }, cmdOpt);
+
+        var rpcStartCmd = new Command("start-rpc", "Start RPC server");
+        rpcStartCmd.SetHandler(() => { RpcServer.Start(); Console.WriteLine("RPC started on http://localhost:5050/"); return Task.CompletedTask; });
+
+        var rpcStopCmd = new Command("stop-rpc", "Stop RPC server");
+        rpcStopCmd.SetHandler(() => { RpcServer.Stop(); Console.WriteLine("RPC stopped"); return Task.CompletedTask; });
+
+        var rpcStatusCmd = new Command("rpc-running", "Is RPC server running?");
+        rpcStatusCmd.SetHandler(() => { Console.WriteLine(RpcServer.IsRunning ? "true" : "false"); return Task.CompletedTask; });
+
+        var notifyOpt = new Option<string>("--json") { IsRequired = true };
+        var rpcNotifyCmd = new Command("rpc-notify", "Send RPC notification") { notifyOpt };
+        rpcNotifyCmd.SetHandler(async (string json) =>
+        {
+            try
+            {
+                var obj = JsonSerializer.Deserialize<object>(json);
+                if (obj != null) RpcServer.Notify(obj);
+                Console.WriteLine("notified");
+            }
+            catch
+            {
+                Console.WriteLine("invalid json");
+            }
+            await Task.CompletedTask;
+        }, notifyOpt);
+
         var compressConvCmd = new Command("compress-conversation", "Summarize and clear conversation");
         compressConvCmd.SetHandler(async () =>
         {
@@ -2210,6 +2280,63 @@ class Program
             Console.WriteLine(lines.Length);
         }, readPathOption);
 
+        var readBinaryCmd = new Command("read-binary-file", "Read file as base64") { readPathOption };
+        readBinaryCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var bytes = await File.ReadAllBytesAsync(path);
+            Console.WriteLine(Convert.ToBase64String(bytes));
+        }, readPathOption);
+
+        var writeBinaryContentOpt = new Option<string>("--base64") { IsRequired = true };
+        var writeBinaryCmd = new Command("write-binary-file", "Write base64 content to file") { readPathOption, writeBinaryContentOpt };
+        writeBinaryCmd.SetHandler(async (string path, string b64) =>
+        {
+            byte[] data;
+            try
+            {
+                data = Convert.FromBase64String(b64);
+            }
+            catch
+            {
+                Console.WriteLine("Invalid base64 data");
+                return;
+            }
+            await File.WriteAllBytesAsync(path, data);
+            Console.WriteLine("Binary file written");
+        }, readPathOption, writeBinaryContentOpt);
+
+        var fileHashCmd = new Command("file-hash", "Compute SHA256 hash of a file") { readPathOption };
+        fileHashCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            await using var stream = File.OpenRead(path);
+            var hash = await sha.ComputeHashAsync(stream);
+            Console.WriteLine(Convert.ToHexString(hash).ToLower());
+        }, readPathOption);
+
+        var fileWordCountCmd = new Command("file-word-count", "Count words in a file") { readPathOption };
+        fileWordCountCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var text = await File.ReadAllTextAsync(path);
+            var count = text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            Console.WriteLine(count);
+        }, readPathOption);
+
         var currentModelCmd = new Command("current-model", "Show selected model index");
         currentModelCmd.SetHandler(() =>
         {
@@ -2638,6 +2765,9 @@ class Program
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,
             lspStartCmd, lspStopCmd, lspStopAllCmd, lspListCmd, lspInfoCmd,
+            readBinaryCmd, writeBinaryCmd, fileHashCmd, fileWordCountCmd,
+            runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd,
+            purgeFailedCmd, tasksOverviewCmd,
             lspSymbolsCmd, lspCodeLensCmd, lspTokensCmd, lspDefCmd, lspRootCmd
         };
 
