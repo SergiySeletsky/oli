@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 
 public static class FileUtils
 {
@@ -38,5 +40,21 @@ public static class FileUtils
         var parent = Directory.GetParent(sourceDir)?.FullName ?? ".";
         var dest = Path.Combine(parent, newName);
         Directory.Move(sourceDir, dest);
+    }
+
+    public static void CompressFile(string sourceFile, string destZip)
+    {
+        using var archive = ZipFile.Open(destZip, ZipArchiveMode.Create);
+        archive.CreateEntryFromFile(sourceFile, Path.GetFileName(sourceFile));
+    }
+
+    public static void DecompressFile(string zipPath, string destFile)
+    {
+        using var archive = ZipFile.OpenRead(zipPath);
+        var entry = archive.Entries.FirstOrDefault();
+        if (entry != null)
+        {
+            entry.ExtractToFile(destFile, true);
+        }
     }
 }

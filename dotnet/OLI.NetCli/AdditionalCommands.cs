@@ -134,6 +134,115 @@ public static class AdditionalCommands
                 Console.WriteLine("task not found");
             }
             await Task.CompletedTask;
+        // set-task-due
+        var dueOpt = new Option<string>("--due") { IsRequired = true };
+        var setDueCmd = new Command("set-task-due", "Set due date for a task") { idArg, dueOpt };
+        setDueCmd.SetHandler(async (string id, string due) =>
+        {
+            if (!DateTime.TryParse(due, out var dt)) { Console.WriteLine("invalid date"); return; }
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.DueDate = dt;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("due date set");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg, dueOpt);
+
+        // task-due
+        var taskDueCmd = new Command("task-due", "Show task due date") { idArg };
+        taskDueCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task?.DueDate != null) Console.WriteLine(task.DueDate.Value.ToString("u"));
+            else Console.WriteLine("no due date");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // add-task-tag
+        var tagArg = new Argument<string>("tag");
+        var addTagCmd = new Command("add-task-tag", "Add tag to task") { idArg, tagArg };
+        addTagCmd.SetHandler(async (string id, string tag) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                if (!task.Tags.Contains(tag)) task.Tags.Add(tag);
+                Program.SaveState(state);
+                Console.WriteLine("tag added");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg, tagArg);
+
+        // remove-task-tag
+        var removeTagCmd = new Command("remove-task-tag", "Remove tag from task") { idArg, tagArg };
+        removeTagCmd.SetHandler(async (string id, string tag) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Tags.Remove(tag);
+                Program.SaveState(state);
+                Console.WriteLine("tag removed");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg, tagArg);
+
+        // list-task-tags
+        var listTagsCmd = new Command("list-task-tags", "List tags for a task") { idArg };
+        listTagsCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                foreach (var tag in task.Tags) Console.WriteLine(tag);
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // tasks-by-tag
+        var tasksByTagCmd = new Command("tasks-by-tag", "List tasks with given tag") { tagArg };
+        tasksByTagCmd.SetHandler(async (string tag) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Tags.Contains(tag)))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, tagArg);
+
+        // tasks-due-soon
+        var daysOpt = new Option<int>("--days", () => 7);
+        var dueSoonCmd = new Command("tasks-due-soon", "List tasks due within days") { daysOpt };
+        dueSoonCmd.SetHandler(async (int days) =>
+        {
+            var state = Program.LoadState();
+            var limit = DateTime.UtcNow.AddDays(days);
+            foreach (var t in state.Tasks.Where(t => t.DueDate != null && t.DueDate <= limit && t.DueDate >= DateTime.UtcNow))
+                Console.WriteLine($"{t.Id}: {t.Description} due {t.DueDate:u}");
+            await Task.CompletedTask;
+        }, daysOpt);
+
+        // tasks-overdue
+        var overdueCmd = new Command("tasks-overdue", "List overdue tasks");
+        overdueCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.DueDate != null && t.DueDate < DateTime.UtcNow))
+                Console.WriteLine($"{t.Id}: {t.Description} due {t.DueDate:u}");
+            await Task.CompletedTask;
+        });
+
         }, idArg, priorityArg);
 
         // reopen-task
@@ -977,6 +1086,41 @@ public static class AdditionalCommands
             Console.WriteLine($"logs split to {directory}");
         }, splitDirArg);
 
+        // compress-log
+        var logZipArg = new Argument<string>("zipPath");
+        var compressLogCmd = new Command("compress-log", "Compress log file to zip") { logZipArg };
+        compressLogCmd.SetHandler(async (string zipPath) =>
+        {
+            if (!File.Exists(LogUtils.LogPath)) { Console.WriteLine("no log"); return; }
+            FileUtils.CompressFile(LogUtils.LogPath, zipPath);
+            Console.WriteLine($"compressed to {zipPath}");
+            await Task.CompletedTask;
+        }, logZipArg);
+
+        // compress-file
+        var compSrcArg = new Argument<string>("source");
+        var compDstArg = new Argument<string>("zip");
+        var compressFileCmd = new Command("compress-file", "Compress file to zip") { compSrcArg, compDstArg };
+        compressFileCmd.SetHandler(async (string source, string zip) =>
+        {
+            if (!File.Exists(source)) { Console.WriteLine("file missing"); return; }
+            FileUtils.CompressFile(source, zip);
+            Console.WriteLine($"compressed to {zip}");
+            await Task.CompletedTask;
+        }, compSrcArg, compDstArg);
+
+        // decompress-file
+        var decompSrcArg = new Argument<string>("zip");
+        var decompDstArg = new Argument<string>("dest");
+        var decompressFileCmd = new Command("decompress-file", "Extract first entry from zip") { decompSrcArg, decompDstArg };
+        decompressFileCmd.SetHandler(async (string zip, string dest) =>
+        {
+            if (!File.Exists(zip)) { Console.WriteLine("zip missing"); return; }
+            FileUtils.DecompressFile(zip, dest);
+            Console.WriteLine($"extracted to {dest}");
+            await Task.CompletedTask;
+        }, decompSrcArg, decompDstArg);
+
         root.Add(importTasksCsvCmd);
 
     static string EscapeCsv(string s)
@@ -1050,6 +1194,17 @@ public static class AdditionalCommands
         root.Add(renameMemCmd);
         root.Add(searchTasksRegexCmd);
         root.Add(splitLogCmd);
+        root.Add(compressLogCmd);
+        root.Add(compressFileCmd);
+        root.Add(decompressFileCmd);
+        root.Add(setDueCmd);
+        root.Add(taskDueCmd);
+        root.Add(addTagCmd);
+        root.Add(removeTagCmd);
+        root.Add(listTagsCmd);
+        root.Add(tasksByTagCmd);
+        root.Add(dueSoonCmd);
+        root.Add(overdueCmd);
 
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };

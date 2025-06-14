@@ -150,6 +150,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added task text import/export via `export-tasks-text` and `import-tasks-text`.
 - Introduced memory utilities `memory-section-lines` and `rename-memory-section`.
 - Added regex task search with `search-tasks-regex` and log splitting via `split-log`.
+- Added task due dates and tagging with commands `set-task-due`, `task-due`,
+  `add-task-tag`, `remove-task-tag`, `list-task-tags`, `tasks-by-tag`,
+  `tasks-due-soon`, and `tasks-overdue`.
+- Added file compression utilities `compress-log`, `compress-file`, and
+  `decompress-file`.
 - Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.

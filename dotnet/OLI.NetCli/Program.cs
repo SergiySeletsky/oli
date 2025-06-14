@@ -197,17 +197,21 @@ class Program
             foreach (var t in state.Tasks)
             {
                 var duration = (t.UpdatedAt - t.CreatedAt).TotalSeconds;
-                Console.WriteLine($"{t.Id}: {t.Description} [{t.Status}] Tools:{t.ToolCount} Tokens:{t.InputTokens}/{t.OutputTokens} Duration:{duration:F0}s");
+                var due = t.DueDate != null ? $" Due:{t.DueDate:u}" : "";
+                var tags = t.Tags.Count > 0 ? $" Tags:{string.Join(',', t.Tags)}" : "";
+                Console.WriteLine($"{t.Id}: {t.Description} [{t.Status}] Tools:{t.ToolCount} Tokens:{t.InputTokens}/{t.OutputTokens} Duration:{duration:F0}s{due}{tags}");
             }
             await Task.CompletedTask;
         });
 
         var descriptionOption = new Option<string>("--description") { IsRequired = true };
+        var dueOption = new Option<string?>("--due");
+        var tagsOption = new Option<string?>("--tags", "comma separated tags");
         var createTaskCmd = new Command("create-task", "Add a new task")
         {
-            descriptionOption
+            descriptionOption, dueOption, tagsOption
         };
-        createTaskCmd.SetHandler(async (string description) =>
+        createTaskCmd.SetHandler(async (string description, string? due, string? tags) =>
         {
             var state = LoadState();
             var task = new TaskRecord
@@ -216,12 +220,14 @@ class Program
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+            if (due != null && DateTime.TryParse(due, out var dt)) task.DueDate = dt;
+            if (!string.IsNullOrEmpty(tags)) task.Tags = tags.Split(',').Select(t => t.Trim()).Where(t => t.Length>0).ToList();
             state.Tasks.Add(task);
             state.CurrentTaskId = task.Id;
             SaveState(state);
             Console.WriteLine($"Created task {task.Id}");
             await Task.CompletedTask;
-        }, descriptionOption);
+        }, descriptionOption, dueOption, tagsOption);
 
         var completeIdOption = new Option<string>("--id") { IsRequired = true };
         var outputTokensOption = new Option<int>("--output-tokens", () => 0);
@@ -2542,6 +2548,9 @@ class Program
             if (task != null)
             {
                 Console.WriteLine($"Id: {task.Id}\nDescription: {task.Description}\nStatus: {task.Status}");
+                if (task.DueDate != null) Console.WriteLine($"Due: {task.DueDate:u}");
+                if (task.Tags.Count > 0) Console.WriteLine($"Tags: {string.Join(',', task.Tags)}");
+                Console.WriteLine($"Tools: {task.ToolCount}\nInput Tokens: {task.InputTokens}\nOutput Tokens: {task.OutputTokens}");
             }
             else
             {

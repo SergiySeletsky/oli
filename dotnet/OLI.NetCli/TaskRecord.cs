@@ -5,6 +5,8 @@ public class TaskRecord
     public string Status { get; set; } = "in-progress";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? DueDate { get; set; }
+    public List<string> Tags { get; set; } = new();
     public int ToolCount { get; set; }
     public int InputTokens { get; set; }
     public int OutputTokens { get; set; }
