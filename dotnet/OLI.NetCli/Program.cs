@@ -268,6 +268,89 @@ class Program
             await Task.CompletedTask;
         }, toolIdOpt);
 
+        var taskCountCmd = new Command("task-count", "Show number of tasks");
+        taskCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.Tasks.Count);
+            await Task.CompletedTask;
+        });
+
+        var clearTasksCmd = new Command("clear-tasks", "Remove all tasks");
+        clearTasksCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            state.Tasks.Clear();
+            SaveState(state);
+            Console.WriteLine("Tasks cleared");
+            await Task.CompletedTask;
+        });
+
+        var updateDescIdOpt = new Option<string>("--id") { IsRequired = true };
+        var updateDescOpt = new Option<string>("--description") { IsRequired = true };
+        var updateTaskDescCmd = new Command("update-task-desc", "Update task description")
+        {
+            updateDescIdOpt, updateDescOpt
+        };
+        updateTaskDescCmd.SetHandler(async (string id, string description) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                task.Description = description;
+                task.UpdatedAt = DateTime.UtcNow;
+                SaveState(state);
+                Console.WriteLine("Description updated");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, updateDescIdOpt, updateDescOpt);
+
+        var exportTasksPathOpt = new Option<string>("--path") { IsRequired = true };
+        var exportTasksCmd = new Command("export-tasks", "Save tasks to JSON file")
+        {
+            exportTasksPathOpt
+        };
+        exportTasksCmd.SetHandler(async (string path) =>
+        {
+            var state = LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state.Tasks, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"Tasks exported to {path}");
+            await Task.CompletedTask;
+        }, exportTasksPathOpt);
+
+        var importTasksPathOpt = new Option<string>("--path") { IsRequired = true };
+        var importTasksCmd = new Command("import-tasks", "Load tasks from JSON file")
+        {
+            importTasksPathOpt
+        };
+        importTasksCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var json = File.ReadAllText(path);
+            var tasks = JsonSerializer.Deserialize<List<TaskRecord>>(json);
+            if (tasks != null)
+            {
+                var state = LoadState();
+                state.Tasks = tasks;
+                SaveState(state);
+                Console.WriteLine("Tasks imported");
+            }
+            else
+            {
+                Console.WriteLine("Invalid tasks file");
+            }
+            await Task.CompletedTask;
+        }, importTasksPathOpt);
+
         var clearConvCmd = new Command("clear-conversation", "Clear stored conversation");
         clearConvCmd.SetHandler(async () =>
         {
@@ -305,6 +388,67 @@ class Program
             Console.WriteLine($"Conversation saved to {path}");
             await Task.CompletedTask;
         }, savePathOption);
+
+        var importConvPathOpt = new Option<string>("--path") { IsRequired = true };
+        var importConvCmd = new Command("import-conversation", "Load conversation from file")
+        {
+            importConvPathOpt
+        };
+        importConvCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var lines = File.ReadAllLines(path).ToList();
+            var state = LoadState();
+            state.Conversation = lines;
+            SaveState(state);
+            Console.WriteLine("Conversation loaded");
+            await Task.CompletedTask;
+        }, importConvPathOpt);
+
+        var appendConvPathOpt = new Option<string>("--path") { IsRequired = true };
+        var appendConvCmd = new Command("append-conversation", "Append messages from file to conversation")
+        {
+            appendConvPathOpt
+        };
+        appendConvCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var lines = File.ReadAllLines(path);
+            var state = LoadState();
+            state.Conversation.AddRange(lines);
+            SaveState(state);
+            Console.WriteLine("Conversation updated");
+            await Task.CompletedTask;
+        }, appendConvPathOpt);
+
+        var deleteIndexOpt = new Option<int>("--index") { IsRequired = true };
+        var deleteConvMsgCmd = new Command("delete-conversation-message", "Remove a message by index")
+        {
+            deleteIndexOpt
+        };
+        deleteConvMsgCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.Conversation.Count)
+            {
+                state.Conversation.RemoveAt(index);
+                SaveState(state);
+                Console.WriteLine("Message removed");
+            }
+            else
+            {
+                Console.WriteLine("Invalid index");
+            }
+            await Task.CompletedTask;
+        }, deleteIndexOpt);
 
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
         memoryInfoCmd.SetHandler(async () =>
@@ -355,10 +499,31 @@ class Program
             await Task.CompletedTask;
         }, contentOption);
 
+        var appendContentOpt = new Option<string>("--content") { IsRequired = true };
+        var appendMemoryCmd = new Command("append-memory-file", "Append text to memory file")
+        {
+            appendContentOpt
+        };
+        appendMemoryCmd.SetHandler(async (string content) =>
+        {
+            var existing = File.Exists(MemoryPath) ? File.ReadAllText(MemoryPath) : string.Empty;
+            File.WriteAllText(MemoryPath, existing + content);
+            Console.WriteLine("Memory file updated");
+            await Task.CompletedTask;
+        }, appendContentOpt);
+
         var statePathCmd = new Command("state-path", "Show path of state file");
         statePathCmd.SetHandler(async () =>
         {
             Console.WriteLine(StatePath);
+            await Task.CompletedTask;
+        });
+
+        var stateInfoCmd = new Command("state-info", "Show summary of saved state");
+        stateInfoCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine($"AgentMode:{state.AgentMode} Model:{state.SelectedModel} Tasks:{state.Tasks.Count} Messages:{state.Conversation.Count}");
             await Task.CompletedTask;
         });
 
@@ -911,8 +1076,10 @@ class Program
             deleteTaskCmd, taskInfoCmd, taskStatsCmd,
             addInputTokensCmd, addToolUseCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
-            listMemorySectionsCmd, statePathCmd, versionCmd,
-            memoryExistsCmd, subscribeCmd, unsubscribeCmd
+            listMemorySectionsCmd, appendMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
+            memoryExistsCmd, subscribeCmd, unsubscribeCmd,
+            taskCountCmd, clearTasksCmd, updateTaskDescCmd, exportTasksCmd,
+            importTasksCmd, importConvCmd, appendConvCmd, deleteConvMsgCmd
         };
 
         return root.Invoke(args);

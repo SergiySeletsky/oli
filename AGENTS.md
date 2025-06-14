@@ -59,6 +59,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added filesystem commands `generate-write-diff`, `generate-edit-diff`,
   `create-directory`, `glob-search`, `glob-search-in-dir`, and `grep-search`.
 - Added `memory-exists` command to check for the memory file.
+- Added task utilities `task-count`, `clear-tasks`, `update-task-desc`, `export-tasks`, and `import-tasks`.
+- Added conversation utilities `import-conversation`, `append-conversation`, and `delete-conversation-message`.
+- Added `append-memory-file` and `state-info` commands.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -70,3 +73,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   summarization for conversation utilities.
 - Improve search commands to respect ignore files and binary detection.
 - Begin porting LSP-based code intelligence features.
+- Persist tasks and conversation data in separate JSON files and load them on startup.
