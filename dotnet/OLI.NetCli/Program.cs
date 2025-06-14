@@ -64,9 +64,16 @@ class Program
             }
         });
 
+        var versionCmd = new Command("version", "Display CLI version");
+        versionCmd.SetHandler(() =>
+        {
+            var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
+            Console.WriteLine($"OLI.NetCli version {version}");
+        });
+
         var root = new RootCommand("oli .NET CLI")
         {
-            runCmd, agentCmd, modelsCmd
+            runCmd, agentCmd, modelsCmd, versionCmd
         };
 
         return root.Invoke(args);

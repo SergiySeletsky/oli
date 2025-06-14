@@ -37,9 +37,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 ### Accomplished
 - Created the `dotnet/OLI.NetCli` project with `run`, `agent-mode`, and `models` commands.
 - Added basic JSON-based state persistence in `Program.cs`.
+- Implemented a `version` command to display the CLI version.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
 - Bring over conversation history and tool integration features from the Rust CLI.
+- Port memory management and conversation clearing APIs from Rust to the .NET CLI.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
