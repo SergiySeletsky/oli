@@ -1839,7 +1839,6 @@ class Program
         var root = new RootCommand("oli .NET CLI")
         {
             runCmd, agentCmd, agentStatusCmd, setModelCmd, modelsCmd,
-            tasksCmd, createTaskCmd, completeTaskCmd, failTaskCmd, currentTaskCmd, setCurrentTaskCmd, cancelTaskCmd,
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
@@ -1854,22 +1853,20 @@ class Program
             deleteFileCmd, fileExistsCmd, touchFileCmd, listDirCmd, listDirRecursiveCmd, headFileCmd, tailFileCmd, fileSizeCmd, createDirCmd, deleteDirCmd, dirExistsCmd, copyDirCmd, moveDirCmd, renameDirCmd, fileInfoCmd, countLinesCmd,
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
-            deleteTaskCmd, taskInfoCmd, latestTaskCmd, inProgressCmd, taskDescCmd, taskStatsCmd,
-            addInputTokensCmd, addToolUseCmd, startToolCmd, updateToolCmd, completeToolCmd, failToolCmd, cleanupToolsCmd, listToolsCmd, toolInfoCmd, toolCountCmd, runningToolsCmd, listToolsByTaskCmd, deleteToolCmd, setToolMetaCmd, exportToolsCmd, importToolsCmd, resetStateCmd,
+            resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
             listMemorySectionsCmd, tasksPathCmd, conversationPathCmd, summariesPathCmd, toolsPathCmd,
             appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, stateVersionCmd, stateSummaryCmd, stateFilesCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
-            taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, exportConvCmd, deleteConvMsgCmd,
+            importConvCmd, appendConvCmd, exportConvCmd, deleteConvMsgCmd,
             deleteSummaryRangeCmd,
-            addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,
-            runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd,
-            purgeFailedCmd, tasksOverviewCmd
+            runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd
         };
 
         LspCommands.Register(root);
+        TaskCommands.Register(root);
+        ToolCommands.Register(root);
         AdditionalCommands.Register(root);
         FileCommands.Register(root);
         SummaryCommands.Register(root);

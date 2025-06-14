@@ -226,6 +226,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `delete-conversation-contains`, and `reverse-conversation` in
   `AdditionalCommands.cs`.
 - Moved `clear-summaries` into `SummaryCommands.cs`.
+- Split task management commands into `TaskCommands.cs` and tool operations into
+  `ToolCommands.cs`; registered these modules in `Program.cs` and pruned the
+  root command list.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
