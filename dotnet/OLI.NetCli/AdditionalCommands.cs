@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using static LogUtils;
@@ -1451,6 +1452,153 @@ public static class AdditionalCommands
         root.Add(openBackupsCmd);
         root.Add(trimLogCmd);
 
+
+        // conversation-unique-words
+        var convUniqueCmd = new Command("conversation-unique-words", "Count unique words in conversation");
+        convUniqueCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var words = state.Conversation
+                .SelectMany(l => l.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+                .Select(w => w.Trim().ToLowerInvariant());
+            Console.WriteLine(words.Distinct().Count());
+            await Task.CompletedTask;
+        });
+
+        // memory-dedupe-lines
+        var dedupeMemCmd = new Command("memory-dedupe-lines", "Remove duplicate lines in memory");
+        dedupeMemCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath).Distinct().ToArray();
+            File.WriteAllLines(Program.MemoryPath, lines);
+            Console.WriteLine("deduped");
+            await Task.CompletedTask;
+        });
+
+        // grep-search-adv
+        var grepAdvPattern = new Argument<string>("pattern");
+        var grepAdvDir = new Option<string>("--dir", () => ".");
+        var grepAdvCmd = new Command("grep-search-adv", "Regex search respecting ignore patterns") { grepAdvPattern, grepAdvDir };
+        grepAdvCmd.SetHandler(async (string pattern, string dir) =>
+        {
+            if (!Directory.Exists(dir)) { Console.WriteLine("Directory not found"); return; }
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            var ignoreDirs = new[] { ".git", "node_modules", "target", "bin", "obj", "dist" };
+            var binaryExt = new[] { ".exe", ".dll", ".so", ".a", ".lib", ".pyc", ".pyo", ".class" };
+            foreach (var file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+            {
+                if (ignoreDirs.Any(id => file.Contains(id))) continue;
+                if (binaryExt.Contains(Path.GetExtension(file))) continue;
+                int idx = 0;
+                foreach (var line in File.ReadLines(file))
+                {
+                    idx++; if (regex.IsMatch(line)) Console.WriteLine($"{file}:{idx}:{line}");
+                }
+            }
+            await Task.CompletedTask;
+        }, grepAdvPattern, grepAdvDir);
+
+        // glob-search-adv
+        var globAdvPattern = new Argument<string>("pattern");
+        var globAdvDir = new Option<string>("--dir", () => ".");
+        var globAdvCmd = new Command("glob-search-adv", "Glob search respecting ignore patterns") { globAdvPattern, globAdvDir };
+        globAdvCmd.SetHandler(async (string pattern, string dir) =>
+        {
+            if (!Directory.Exists(dir)) { Console.WriteLine("Directory not found"); return; }
+            var ignoreDirs = new[] { ".git", "node_modules", "target", "bin", "obj", "dist" };
+            foreach (var file in Directory.GetFiles(dir, pattern, SearchOption.AllDirectories))
+            {
+                if (ignoreDirs.Any(id => file.Contains(id))) continue;
+                Console.WriteLine(file);
+            }
+            await Task.CompletedTask;
+        }, globAdvPattern, globAdvDir);
+
+        // rpc-stream-events
+        var rpcStreamCmd = new Command("rpc-stream-events", "Stream RPC events");
+        rpcStreamCmd.SetHandler(async () =>
+        {
+            using var client = new HttpClient();
+            while (true)
+            {
+                var res = await client.GetAsync("http://localhost:5050/events");
+                var json = await res.Content.ReadAsStringAsync();
+                var events = JsonSerializer.Deserialize<List<object>>(json) ?? new();
+                foreach (var ev in events) Console.WriteLine(JsonSerializer.Serialize(ev));
+                await Task.Delay(1000);
+            }
+        });
+
+        // tool-progress
+        var toolProgId = new Argument<string>("id");
+        var toolProgCmd = new Command("tool-progress", "Show progress of tool execution") { toolProgId };
+        toolProgCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            if (tool != null)
+                Console.WriteLine($"{tool.Id} {tool.Status} {tool.Message}");
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, toolProgId);
+
+        // tool-progress-all
+        var toolProgAllCmd = new Command("tool-progress-all", "Show progress of all tools");
+        toolProgAllCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions)
+                Console.WriteLine($"{t.Id} {t.Status} {t.Message}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-today
+        var tasksTodayCmd = new Command("tasks-today", "List tasks created today");
+        tasksTodayCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var today = DateTime.UtcNow.Date;
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt.Date == today))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-week
+        var tasksWeekCmd = new Command("tasks-week", "List tasks from the last 7 days");
+        tasksWeekCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var cutoff = DateTime.UtcNow.Date.AddDays(-7);
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt.Date >= cutoff))
+                Console.WriteLine($"{t.Id} {t.Description} {t.CreatedAt:u}");
+            await Task.CompletedTask;
+        });
+
+        // export-tasks-md
+        var exportMdArg = new Argument<string>("path");
+        var exportMdCmd = new Command("export-tasks-md", "Export tasks to markdown") { exportMdArg };
+        exportMdCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var sb = new StringBuilder();
+            sb.AppendLine("# Tasks");
+            foreach (var t in state.Tasks)
+                sb.AppendLine($"- **[{t.Id}]** {t.Description} ({t.Status})");
+            await File.WriteAllTextAsync(path, sb.ToString());
+            Console.WriteLine("exported");
+        }, exportMdArg);
+
+        root.Add(convUniqueCmd);
+        root.Add(dedupeMemCmd);
+        root.Add(grepAdvCmd);
+        root.Add(globAdvCmd);
+        root.Add(rpcStreamCmd);
+        root.Add(toolProgCmd);
+        root.Add(toolProgAllCmd);
+        root.Add(tasksTodayCmd);
+        root.Add(tasksWeekCmd);
+        root.Add(exportMdCmd);
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };
         var moveToOpt = new Option<int>("--to") { IsRequired = true };

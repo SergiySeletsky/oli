@@ -12,6 +12,16 @@ public static class RpcServer
     static readonly List<object> _events = new();
     static CancellationTokenSource? _cts;
 
+    public static List<object> DrainEvents()
+    {
+        lock (_events)
+        {
+            var copy = new List<object>(_events);
+            _events.Clear();
+            return copy;
+        }
+    }
+
     public static void Start(int port = 5050)
     {
         if (_listener != null) return;
@@ -69,13 +79,31 @@ public static class RpcServer
         var res = ctx.Response;
         if (req.HttpMethod == "GET" && req.Url!.AbsolutePath == "/events")
         {
-            List<object> copy;
-            lock (_events) copy = new List<object>(_events);
-            var json = JsonSerializer.Serialize(copy);
+            var events = DrainEvents();
+            var json = JsonSerializer.Serialize(events);
             var data = Encoding.UTF8.GetBytes(json);
             res.ContentType = "application/json";
             res.ContentLength64 = data.Length;
             await res.OutputStream.WriteAsync(data, 0, data.Length);
+        }
+        else if (req.HttpMethod == "GET" && req.Url!.AbsolutePath == "/stream")
+        {
+            res.ContentType = "text/event-stream";
+            res.Headers.Add("Cache-Control", "no-cache");
+            res.SendChunked = true;
+            var output = res.OutputStream;
+            while (_listener != null && res.OutputStream.CanWrite)
+            {
+                foreach (var ev in DrainEvents())
+                {
+                    var json = JsonSerializer.Serialize(ev);
+                    var line = Encoding.UTF8.GetBytes($"data: {json}\n\n");
+                    await output.WriteAsync(line, 0, line.Length);
+                    await output.FlushAsync();
+                }
+                await Task.Delay(1000);
+                if (!res.OutputStream.CanWrite) break;
+            }
         }
         else if (req.HttpMethod == "POST" && req.Url!.AbsolutePath == "/notify")
         {

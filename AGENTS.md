@@ -168,6 +168,13 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added tool utilities `list-tool-ids`, `tool-metadata`, `export-tool-run`, `import-tool-run`, and `clear-tools`.
 - Added backup helpers `backup-path` and `open-backups`.
 - Added log trimming command `trim-log`.
+- Added `conversation-unique-words` to count vocabulary in a conversation.
+- Added `memory-dedupe-lines` for removing duplicate memory lines.
+- Implemented `grep-search-adv` and `glob-search-adv` respecting ignore patterns.
+- Added `rpc-stream-events` and SSE support in `RpcServer`.
+- Introduced tool progress commands `tool-progress` and `tool-progress-all`.
+- Added task listing helpers `tasks-today` and `tasks-week`.
+- Implemented `export-tasks-md` to save tasks as Markdown.
 - Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
