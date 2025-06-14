@@ -80,6 +80,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Introduced tool execution tracking persisted to `tools.json` with commands
   `start-tool`, `update-tool-progress`, `complete-tool`, `fail-tool`,
   `cleanup-tools`, `list-tools`, `tool-info`, `tool-count`, and `running-tools`.
+- Added automatic conversation compression with `set-auto-compress`,
+  `set-compress-thresholds`, and `show-config` commands.
+- Added working directory support via `set-working-dir` and `current-directory`.
+- Added tool management commands `list-tools-by-task`, `delete-tool`,
+  `set-tool-metadata`, `export-tools`, and `import-tools`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -92,4 +97,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Improve search commands to respect ignore files and binary detection.
 - Begin porting LSP-based code intelligence features.
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
-- Add automatic conversation compression based on size thresholds.
+- Hook up automatic conversation compression to LLM summarization.

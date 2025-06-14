@@ -29,6 +29,10 @@ public class AppState
     public string? CurrentTaskId { get; set; }
     public List<ToolExecution> ToolExecutions { get; set; } = new();
     public HashSet<string> Subscriptions { get; set; } = new();
+    public bool AutoCompress { get; set; } = false;
+    public int CompressCharThreshold { get; set; } = 4000;
+    public int CompressMessageThreshold { get; set; } = 50;
+    public string WorkingDirectory { get; set; } = Directory.GetCurrentDirectory();
 }
 
 class Program
@@ -131,6 +135,7 @@ class Program
             var state = LoadState();
             state.SelectedModel = modelIndex;
             state.Conversation.Add($"User: {prompt}");
+            AutoCompress(state);
             SaveState(state);
             Console.WriteLine($"[Model {modelIndex}] Prompt: {prompt}");
             // TODO: call model API
@@ -580,6 +585,83 @@ class Program
             await Task.CompletedTask;
         });
 
+        var listToolsByTaskCmd = new Command("list-tools-by-task", "List tools for a task") { startToolTaskOpt };
+        listToolsByTaskCmd.SetHandler(async (string taskId) =>
+        {
+            var state = LoadState();
+            foreach (var t in state.ToolExecutions.Where(te => te.TaskId == taskId))
+            {
+                Console.WriteLine($"{t.Id}: {t.Name} [{t.Status}] {t.Message}");
+            }
+            await Task.CompletedTask;
+        }, startToolTaskOpt);
+
+        var deleteToolCmd = new Command("delete-tool", "Remove a tool execution") { toolIdOpt2 };
+        deleteToolCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var removed = state.ToolExecutions.RemoveAll(te => te.Id == id);
+            SaveState(state);
+            Console.WriteLine(removed > 0 ? "deleted" : "not found");
+            await Task.CompletedTask;
+        }, toolIdOpt2);
+
+        var metaKeyOpt = new Option<string>("--key") { IsRequired = true };
+        var metaValOpt = new Option<string>("--value") { IsRequired = true };
+        var setToolMetaCmd = new Command("set-tool-metadata", "Set metadata on tool") { toolIdOpt2, metaKeyOpt, metaValOpt };
+        setToolMetaCmd.SetHandler(async (string id, string key, string value) =>
+        {
+            var state = LoadState();
+            var tool = state.ToolExecutions.Find(t => t.Id == id);
+            if (tool != null)
+            {
+                tool.Metadata ??= new Dictionary<string, object>();
+                tool.Metadata[key] = value;
+                SaveState(state);
+                Console.WriteLine("metadata set");
+            }
+            else
+            {
+                Console.WriteLine("Tool not found");
+            }
+            await Task.CompletedTask;
+        }, toolIdOpt2, metaKeyOpt, metaValOpt);
+
+        var exportToolsPathOpt = new Option<string>("--path") { IsRequired = true };
+        var exportToolsCmd = new Command("export-tools", "Save tools to JSON") { exportToolsPathOpt };
+        exportToolsCmd.SetHandler(async (string path) =>
+        {
+            var state = LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state.ToolExecutions, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"Tools exported to {path}");
+            await Task.CompletedTask;
+        }, exportToolsPathOpt);
+
+        var importToolsPathOpt = new Option<string>("--path") { IsRequired = true };
+        var importToolsCmd = new Command("import-tools", "Load tools from JSON") { importToolsPathOpt };
+        importToolsCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var json = File.ReadAllText(path);
+            var tools = JsonSerializer.Deserialize<List<ToolExecution>>(json);
+            if (tools != null)
+            {
+                var state = LoadState();
+                state.ToolExecutions = tools;
+                SaveState(state);
+                Console.WriteLine("Tools imported");
+            }
+            else
+            {
+                Console.WriteLine("Invalid tools file");
+            }
+            await Task.CompletedTask;
+        }, importToolsPathOpt);
+
         var updateDescIdOpt = new Option<string>("--id") { IsRequired = true };
         var updateDescOpt = new Option<string>("--description") { IsRequired = true };
         var updateTaskDescCmd = new Command("update-task-desc", "Update task description")
@@ -711,6 +793,7 @@ class Program
             var lines = File.ReadAllLines(path).ToList();
             var state = LoadState();
             state.Conversation = lines;
+            AutoCompress(state);
             SaveState(state);
             Console.WriteLine("Conversation loaded");
             await Task.CompletedTask;
@@ -731,6 +814,7 @@ class Program
             var lines = File.ReadAllLines(path);
             var state = LoadState();
             state.Conversation.AddRange(lines);
+            AutoCompress(state);
             SaveState(state);
             Console.WriteLine("Conversation updated");
             await Task.CompletedTask;
@@ -923,6 +1007,25 @@ class Program
             await Task.CompletedTask;
         });
 
+        var setWorkingDirOpt = new Option<string>("--path") { IsRequired = true };
+        var setWorkingDirCmd = new Command("set-working-dir", "Set working directory") { setWorkingDirOpt };
+        setWorkingDirCmd.SetHandler(async (string path) =>
+        {
+            var state = LoadState();
+            state.WorkingDirectory = path;
+            SaveState(state);
+            Console.WriteLine($"Working directory set to {path}");
+            await Task.CompletedTask;
+        }, setWorkingDirOpt);
+
+        var currentDirCmd = new Command("current-directory", "Show configured working directory");
+        currentDirCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.WorkingDirectory);
+            await Task.CompletedTask;
+        });
+
         var memoryPathCmd = new Command("memory-path", "Show path of memory file");
         memoryPathCmd.SetHandler(async () =>
         {
@@ -1064,6 +1167,38 @@ class Program
         {
             var state = LoadState();
             Console.WriteLine(state.ConversationSummaries.Count);
+            await Task.CompletedTask;
+        });
+
+        var setAutoCompressOption = new Option<bool>("--enable") { IsRequired = true };
+        var setAutoCompressCmd = new Command("set-auto-compress", "Enable or disable automatic compression") { setAutoCompressOption };
+        setAutoCompressCmd.SetHandler(async (bool enable) =>
+        {
+            var state = LoadState();
+            state.AutoCompress = enable;
+            SaveState(state);
+            Console.WriteLine($"Auto compress set to {enable}");
+            await Task.CompletedTask;
+        }, setAutoCompressOption);
+
+        var threshCharOpt = new Option<int>("--char", () => 4000);
+        var threshMsgOpt = new Option<int>("--messages", () => 50);
+        var setThresholdsCmd = new Command("set-compress-thresholds", "Configure compression thresholds") { threshCharOpt, threshMsgOpt };
+        setThresholdsCmd.SetHandler(async (int ch, int msg) =>
+        {
+            var state = LoadState();
+            state.CompressCharThreshold = ch;
+            state.CompressMessageThreshold = msg;
+            SaveState(state);
+            Console.WriteLine("Thresholds updated");
+            await Task.CompletedTask;
+        }, threshCharOpt, threshMsgOpt);
+
+        var showConfigCmd = new Command("show-config", "Display configuration settings");
+        showConfigCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine($"Model:{state.SelectedModel} AgentMode:{state.AgentMode} AutoCompress:{state.AutoCompress} CharThresh:{state.CompressCharThreshold} MsgThresh:{state.CompressMessageThreshold} WorkingDir:{state.WorkingDirectory}");
             await Task.CompletedTask;
         });
 
@@ -1742,6 +1877,7 @@ class Program
             convCharCountCmd, summaryCountCmd, compressConvCmd,
             clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
             importSummariesCmd, deleteSummaryCmd,
+            setAutoCompressCmd, setThresholdsCmd, showConfigCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
             genWriteDiffCmd, genEditDiffCmd, copyFileCmd, moveFileCmd, renameFileCmd,
@@ -1749,12 +1885,13 @@ class Program
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
             deleteTaskCmd, taskInfoCmd, taskStatsCmd,
-            addInputTokensCmd, addToolUseCmd, startToolCmd, updateToolCmd, completeToolCmd, failToolCmd, cleanupToolsCmd, listToolsCmd, toolInfoCmd, toolCountCmd, runningToolsCmd, resetStateCmd,
+            addInputTokensCmd, addToolUseCmd, startToolCmd, updateToolCmd, completeToolCmd, failToolCmd, cleanupToolsCmd, listToolsCmd, toolInfoCmd, toolCountCmd, runningToolsCmd, listToolsByTaskCmd, deleteToolCmd, setToolMetaCmd, exportToolsCmd, importToolsCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
             listMemorySectionsCmd, appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, exportConvCmd, deleteConvMsgCmd
+            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, exportConvCmd, deleteConvMsgCmd,
+            setWorkingDirCmd, currentDirCmd
         };
 
         return root.Invoke(args);
@@ -1777,5 +1914,25 @@ class Program
             }
         }
         return string.Join('\n', diff);
+    }
+
+    static void AutoCompress(AppState state)
+    {
+        if (!state.AutoCompress) return;
+        var charCount = state.Conversation.Sum(m => m.Length);
+        if (state.Conversation.Count >= state.CompressMessageThreshold || charCount >= state.CompressCharThreshold)
+        {
+            var text = string.Join(" ", state.Conversation);
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var summary = string.Join(" ", words.Take(20));
+            state.ConversationSummaries.Add(new ConversationSummary
+            {
+                Content = summary,
+                CreatedAt = DateTime.UtcNow,
+                MessagesCount = state.Conversation.Count,
+                OriginalChars = text.Length
+            });
+            state.Conversation.Clear();
+        }
     }
 }
