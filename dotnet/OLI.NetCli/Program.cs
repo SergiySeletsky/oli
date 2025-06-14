@@ -389,6 +389,19 @@ class Program
             await Task.CompletedTask;
         }, savePathOption);
 
+        var exportConvPathOpt = new Option<string>("--path") { IsRequired = true };
+        var exportConvCmd = new Command("export-conversation", "Export conversation to file")
+        {
+            exportConvPathOpt
+        };
+        exportConvCmd.SetHandler(async (string path) =>
+        {
+            var state = LoadState();
+            File.WriteAllLines(path, state.Conversation);
+            Console.WriteLine($"Conversation exported to {path}");
+            await Task.CompletedTask;
+        }, exportConvPathOpt);
+
         var importConvPathOpt = new Option<string>("--path") { IsRequired = true };
         var importConvCmd = new Command("import-conversation", "Load conversation from file")
         {
@@ -511,6 +524,40 @@ class Program
             Console.WriteLine("Memory file updated");
             await Task.CompletedTask;
         }, appendContentOpt);
+
+        var importMemoryPathOpt = new Option<string>("--path") { IsRequired = true };
+        var importMemoryCmd = new Command("import-memory-file", "Load memory file from path")
+        {
+            importMemoryPathOpt
+        };
+        importMemoryCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            File.Copy(path, MemoryPath, true);
+            Console.WriteLine("Memory file imported");
+            await Task.CompletedTask;
+        }, importMemoryPathOpt);
+
+        var exportMemoryPathOpt = new Option<string>("--path") { IsRequired = true };
+        var exportMemoryCmd = new Command("export-memory-file", "Write memory file to path")
+        {
+            exportMemoryPathOpt
+        };
+        exportMemoryCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            File.Copy(MemoryPath, path, true);
+            Console.WriteLine($"Memory file exported to {path}");
+            await Task.CompletedTask;
+        }, exportMemoryPathOpt);
 
         var statePathCmd = new Command("state-path", "Show path of state file");
         statePathCmd.SetHandler(async () =>
@@ -746,6 +793,88 @@ class Program
             await Task.CompletedTask;
         }, readPathOption, oldOpt, newOpt);
 
+        var appendContentOption = new Option<string>("--content") { IsRequired = true };
+        var appendFileCmd = new Command("append-file", "Append content to a file")
+        {
+            readPathOption, appendContentOption
+        };
+        appendFileCmd.SetHandler(async (string path, string content) =>
+        {
+            await File.AppendAllTextAsync(path, content);
+            Console.WriteLine("File appended");
+        }, readPathOption, appendContentOption);
+
+        var copyDestOption = new Option<string>("--dest") { IsRequired = true };
+        var copyFileCmd = new Command("copy-file", "Copy file to destination")
+        {
+            readPathOption, copyDestOption
+        };
+        copyFileCmd.SetHandler(async (string path, string dest) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            File.Copy(path, dest, true);
+            Console.WriteLine($"Copied to {dest}");
+            await Task.CompletedTask;
+        }, readPathOption, copyDestOption);
+
+        var moveDestOption = new Option<string>("--dest") { IsRequired = true };
+        var moveFileCmd = new Command("move-file", "Move file to destination")
+        {
+            readPathOption, moveDestOption
+        };
+        moveFileCmd.SetHandler(async (string path, string dest) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            File.Move(path, dest, true);
+            Console.WriteLine($"Moved to {dest}");
+            await Task.CompletedTask;
+        }, readPathOption, moveDestOption);
+
+        var renameDestOption = new Option<string>("--new-path") { IsRequired = true };
+        var renameFileCmd = new Command("rename-file", "Rename a file")
+        {
+            readPathOption, renameDestOption
+        };
+        renameFileCmd.SetHandler(async (string path, string newPath) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            File.Move(path, newPath, true);
+            Console.WriteLine($"Renamed to {newPath}");
+            await Task.CompletedTask;
+        }, readPathOption, renameDestOption);
+
+        var deleteFileCmd = new Command("delete-file", "Delete a file") { readPathOption };
+        deleteFileCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            File.Delete(path);
+            Console.WriteLine("File deleted");
+            await Task.CompletedTask;
+        }, readPathOption);
+
+        var fileExistsCmd = new Command("file-exists", "Check if a file exists") { readPathOption };
+        fileExistsCmd.SetHandler(async (string path) =>
+        {
+            Console.WriteLine(File.Exists(path) ? "true" : "false");
+            await Task.CompletedTask;
+        }, readPathOption);
+
         var dirPathOption = new Option<string>("--path", () => ".");
         var listDirCmd = new Command("list-directory", "List directory contents") { dirPathOption };
         listDirCmd.SetHandler(async (string path) =>
@@ -767,6 +896,26 @@ class Program
         {
             Directory.CreateDirectory(path);
             Console.WriteLine($"Created {path}");
+            await Task.CompletedTask;
+        }, dirPathOption);
+
+        var deleteDirCmd = new Command("delete-directory", "Delete a directory") { dirPathOption };
+        deleteDirCmd.SetHandler(async (string path) =>
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            Directory.Delete(path, true);
+            Console.WriteLine("Directory deleted");
+            await Task.CompletedTask;
+        }, dirPathOption);
+
+        var dirExistsCmd = new Command("dir-exists", "Check if directory exists") { dirPathOption };
+        dirExistsCmd.SetHandler(async (string path) =>
+        {
+            Console.WriteLine(Directory.Exists(path) ? "true" : "false");
             await Task.CompletedTask;
         }, dirPathOption);
 
@@ -828,6 +977,18 @@ class Program
             var info = new FileInfo(path);
             Console.WriteLine($"Path: {info.FullName}\nSize: {info.Length} bytes\nModified: {info.LastWriteTime}");
             await Task.CompletedTask;
+        }, readPathOption);
+
+        var countLinesCmd = new Command("count-lines", "Count lines in a file") { readPathOption };
+        countLinesCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var lines = await File.ReadAllLinesAsync(path);
+            Console.WriteLine(lines.Length);
         }, readPathOption);
 
         var currentModelCmd = new Command("current-model", "Show selected model index");
@@ -1068,18 +1229,18 @@ class Program
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
             summarizeCmd, convStatsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
-            writeFileCmd, writeDiffCmd, editFileCmd,
-            genWriteDiffCmd, genEditDiffCmd,
-            listDirCmd, createDirCmd, fileInfoCmd,
+            writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
+            genWriteDiffCmd, genEditDiffCmd, copyFileCmd, moveFileCmd, renameFileCmd,
+            deleteFileCmd, fileExistsCmd, listDirCmd, createDirCmd, deleteDirCmd, dirExistsCmd, fileInfoCmd, countLinesCmd,
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
             deleteTaskCmd, taskInfoCmd, taskStatsCmd,
             addInputTokensCmd, addToolUseCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
-            listMemorySectionsCmd, appendMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
+            listMemorySectionsCmd, appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd,
             taskCountCmd, clearTasksCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, deleteConvMsgCmd
+            importTasksCmd, importConvCmd, appendConvCmd, exportConvCmd, deleteConvMsgCmd
         };
 
         return root.Invoke(args);

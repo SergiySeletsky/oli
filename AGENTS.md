@@ -62,6 +62,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added task utilities `task-count`, `clear-tasks`, `update-task-desc`, `export-tasks`, and `import-tasks`.
 - Added conversation utilities `import-conversation`, `append-conversation`, and `delete-conversation-message`.
 - Added `append-memory-file` and `state-info` commands.
+- Added memory import/export commands `import-memory-file` and `export-memory-file`.
+- Added conversation export command `export-conversation`.
+- Added file utilities `append-file`, `copy-file`, `move-file`, `rename-file`, `delete-file`, `file-exists`, and `count-lines`.
+- Added directory utilities `delete-directory` and `dir-exists`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
