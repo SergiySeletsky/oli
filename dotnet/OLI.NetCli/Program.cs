@@ -31,21 +31,51 @@ public class AppState
 class Program
 {
     static readonly string StatePath = Path.Combine(AppContext.BaseDirectory, "state.json");
+    static readonly string TasksPath = Path.Combine(AppContext.BaseDirectory, "tasks.json");
+    static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
     static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
+
+    static List<TaskRecord> LoadTasks()
+    {
+        if (File.Exists(TasksPath))
+        {
+            var json = File.ReadAllText(TasksPath);
+            return JsonSerializer.Deserialize<List<TaskRecord>>(json) ?? new();
+        }
+        return new();
+    }
+
+    static void SaveTasks(List<TaskRecord> tasks)
+    {
+        File.WriteAllText(TasksPath, JsonSerializer.Serialize(tasks, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    static List<string> LoadConversation()
+    {
+        return File.Exists(ConversationPath) ? File.ReadAllLines(ConversationPath).ToList() : new();
+    }
+
+    static void SaveConversation(List<string> conv)
+    {
+        File.WriteAllLines(ConversationPath, conv);
+    }
 
     static AppState LoadState()
     {
-        if (File.Exists(StatePath))
-        {
-            var json = File.ReadAllText(StatePath);
-            return JsonSerializer.Deserialize<AppState>(json) ?? new AppState();
-        }
-        return new AppState();
+        var state = File.Exists(StatePath)
+            ? JsonSerializer.Deserialize<AppState>(File.ReadAllText(StatePath)) ?? new AppState()
+            : new AppState();
+
+        state.Tasks = LoadTasks();
+        state.Conversation = LoadConversation();
+        return state;
     }
 
     static void SaveState(AppState state)
     {
         File.WriteAllText(StatePath, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
+        SaveTasks(state.Tasks);
+        SaveConversation(state.Conversation);
     }
 
     static int Main(string[] args)
@@ -286,6 +316,28 @@ class Program
             await Task.CompletedTask;
         });
 
+        var clearCompletedCmd = new Command("clear-completed-tasks", "Remove completed tasks");
+        clearCompletedCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            state.Tasks.RemoveAll(t => t.Status == "completed");
+            SaveState(state);
+            Console.WriteLine("Completed tasks removed");
+            await Task.CompletedTask;
+        });
+
+        var statusOpt = new Option<string>("--status") { IsRequired = true };
+        var tasksByStatusCmd = new Command("tasks-by-status", "List tasks filtered by status") { statusOpt };
+        tasksByStatusCmd.SetHandler(async (string status) =>
+        {
+            var state = LoadState();
+            foreach (var t in state.Tasks.Where(t => string.Equals(t.Status, status, StringComparison.OrdinalIgnoreCase)))
+            {
+                Console.WriteLine($"{t.Id}: {t.Description} [{t.Status}]");
+            }
+            await Task.CompletedTask;
+        }, statusOpt);
+
         var updateDescIdOpt = new Option<string>("--id") { IsRequired = true };
         var updateDescOpt = new Option<string>("--description") { IsRequired = true };
         var updateTaskDescCmd = new Command("update-task-desc", "Update task description")
@@ -463,6 +515,61 @@ class Program
             await Task.CompletedTask;
         }, deleteIndexOpt);
 
+        var convLenCmd = new Command("conversation-length", "Show number of conversation messages");
+        convLenCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.Conversation.Count);
+            await Task.CompletedTask;
+        });
+
+        var lastConvCmd = new Command("conversation-last", "Show last conversation message");
+        lastConvCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            if (state.Conversation.Count == 0)
+            {
+                Console.WriteLine("No conversation");
+            }
+            else
+            {
+                Console.WriteLine(state.Conversation.Last());
+            }
+            await Task.CompletedTask;
+        });
+
+        var searchTextOpt = new Option<string>("--text") { IsRequired = true };
+        var convSearchCmd = new Command("conversation-search", "Search conversation for text") { searchTextOpt };
+        convSearchCmd.SetHandler(async (string text) =>
+        {
+            var state = LoadState();
+            var matches = state.Conversation
+                .Select((m, i) => (m, i))
+                .Where(t => t.m.Contains(text, StringComparison.OrdinalIgnoreCase));
+            foreach (var (m, i) in matches)
+            {
+                Console.WriteLine($"[{i}] {m}");
+            }
+            await Task.CompletedTask;
+        }, searchTextOpt);
+
+        var startOpt = new Option<int>("--start") { IsRequired = true };
+        var endOpt = new Option<int>("--end") { IsRequired = true };
+        var deleteRangeCmd = new Command("delete-conversation-range", "Delete messages in index range") { startOpt, endOpt };
+        deleteRangeCmd.SetHandler(async (int start, int end) =>
+        {
+            var state = LoadState();
+            if (start < 0 || end >= state.Conversation.Count || start > end)
+            {
+                Console.WriteLine("Invalid range");
+                return;
+            }
+            state.Conversation.RemoveRange(start, end - start + 1);
+            SaveState(state);
+            Console.WriteLine("Messages removed");
+            await Task.CompletedTask;
+        }, startOpt, endOpt);
+
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
         memoryInfoCmd.SetHandler(async () =>
         {
@@ -635,6 +742,39 @@ class Program
                     Console.WriteLine($"  - {entry}");
                 }
             }
+            await Task.CompletedTask;
+        });
+
+        var sectionCountCmd = new Command("memory-section-count", "Count memory sections");
+        sectionCountCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("0");
+                return;
+            }
+            var count = File.ReadLines(MemoryPath).Count(l => l.StartsWith("## "));
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        });
+
+        var entryCountCmd = new Command("memory-entry-count", "Count total memory entries");
+        entryCountCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("0");
+                return;
+            }
+            var count = File.ReadLines(MemoryPath).Count(l => l.StartsWith("- "));
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        });
+
+        var memoryTemplateCmd = new Command("memory-template", "Show default memory template");
+        memoryTemplateCmd.SetHandler(async () =>
+        {
+            Console.WriteLine("# oli.md\n\n## Project Structure\n- example\n\n## Build Commands\n- example\n\n## Test Commands\n- example\n\n## Architecture\n- example");
             await Task.CompletedTask;
         });
 
@@ -1227,6 +1367,7 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
+            sectionCountCmd, entryCountCmd, memoryTemplateCmd,
             summarizeCmd, convStatsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
@@ -1239,8 +1380,8 @@ class Program
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
             listMemorySectionsCmd, appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd,
-            taskCountCmd, clearTasksCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, exportConvCmd, deleteConvMsgCmd
+            taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
+            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, exportConvCmd, deleteConvMsgCmd
         };
 
         return root.Invoke(args);

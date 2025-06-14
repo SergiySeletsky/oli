@@ -66,6 +66,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation export command `export-conversation`.
 - Added file utilities `append-file`, `copy-file`, `move-file`, `rename-file`, `delete-file`, `file-exists`, and `count-lines`.
 - Added directory utilities `delete-directory` and `dir-exists`.
+- Persisted tasks in `tasks.json` and conversation in `conversation.json`.
+- Added conversation commands `conversation-length`, `conversation-last`, `conversation-search`, and `delete-conversation-range`.
+- Added memory commands `memory-section-count`, `memory-entry-count`, and `memory-template`.
+- Added task utilities `clear-completed-tasks` and `tasks-by-status`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -77,4 +81,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   summarization for conversation utilities.
 - Improve search commands to respect ignore files and binary detection.
 - Begin porting LSP-based code intelligence features.
-- Persist tasks and conversation data in separate JSON files and load them on startup.
+- Improve task filtering options and start integrating conversation summaries with LLM APIs.
