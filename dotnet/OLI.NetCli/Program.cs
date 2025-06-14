@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -49,7 +50,7 @@ class Program
             promptOption,
             modelOption
         };
-        runCmd.SetHandler((string prompt, int modelIndex) =>
+        runCmd.SetHandler(async (string prompt, int modelIndex) =>
         {
             var state = LoadState();
             state.SelectedModel = modelIndex;
@@ -57,6 +58,7 @@ class Program
             SaveState(state);
             Console.WriteLine($"[Model {modelIndex}] Prompt: {prompt}");
             // TODO: call model API
+            await Task.CompletedTask;
         }, promptOption, modelOption);
 
         var enableOption = new Option<bool>("--enable", "Set to true to enable agent mode") { IsRequired = true };
@@ -64,45 +66,49 @@ class Program
         {
             enableOption
         };
-        agentCmd.SetHandler((bool enable) =>
+        agentCmd.SetHandler(async (bool enable) =>
         {
             var state = LoadState();
             state.AgentMode = enable;
             SaveState(state);
             Console.WriteLine($"Agent mode set to {enable}");
+            await Task.CompletedTask;
         }, enableOption);
 
         var agentStatusCmd = new Command("agent-status", "Show whether agent mode is enabled");
-        agentStatusCmd.SetHandler(() =>
+        agentStatusCmd.SetHandler(async () =>
         {
             var state = LoadState();
             Console.WriteLine(state.AgentMode ? "Agent mode is ON" : "Agent mode is OFF");
+            await Task.CompletedTask;
         });
 
         var setModelCmd = new Command("set-model", "Select the active model")
         {
             modelOption
         };
-        setModelCmd.SetHandler((int index) =>
+        setModelCmd.SetHandler(async (int index) =>
         {
             var state = LoadState();
             state.SelectedModel = index;
             SaveState(state);
             Console.WriteLine($"Selected model {index}");
+            await Task.CompletedTask;
         }, modelOption);
 
         var modelsCmd = new Command("models", "List available models");
-        modelsCmd.SetHandler(() =>
+        modelsCmd.SetHandler(async () =>
         {
             string[] models = ["gpt-4o", "claude-sonnet", "gemini-1.5" ];
             for (int i = 0; i < models.Length; i++)
             {
                 Console.WriteLine($"[{i}] {models[i]}");
             }
+            await Task.CompletedTask;
         });
 
         var tasksCmd = new Command("tasks", "List tasks");
-        tasksCmd.SetHandler(() =>
+        tasksCmd.SetHandler(async () =>
         {
             var state = LoadState();
             if (state.Tasks.Count == 0)
@@ -113,26 +119,30 @@ class Program
             {
                 Console.WriteLine($"{t.Id}: {t.Description} [{t.Status}]");
             }
+            await Task.CompletedTask;
         });
 
+        var descriptionOption = new Option<string>("--description") { IsRequired = true };
         var createTaskCmd = new Command("create-task", "Add a new task")
         {
-            new Option<string>("--description") { IsRequired = true }
+            descriptionOption
         };
-        createTaskCmd.SetHandler((string description) =>
+        createTaskCmd.SetHandler(async (string description) =>
         {
             var state = LoadState();
             var task = new TaskRecord { Description = description };
             state.Tasks.Add(task);
             SaveState(state);
             Console.WriteLine($"Created task {task.Id}");
-        }, createTaskCmd.Options[0]);
+            await Task.CompletedTask;
+        }, descriptionOption);
 
+        var completeIdOption = new Option<string>("--id") { IsRequired = true };
         var completeTaskCmd = new Command("complete-task", "Mark a task as completed")
         {
-            new Option<string>("--id") { IsRequired = true }
+            completeIdOption
         };
-        completeTaskCmd.SetHandler((string id) =>
+        completeTaskCmd.SetHandler(async (string id) =>
         {
             var state = LoadState();
             var task = state.Tasks.Find(t => t.Id == id);
@@ -146,13 +156,15 @@ class Program
             {
                 Console.WriteLine("Task not found");
             }
-        }, completeTaskCmd.Options[0]);
+            await Task.CompletedTask;
+        }, completeIdOption);
 
+        var cancelIdOption = new Option<string>("--id", () => string.Empty, "Task id to cancel");
         var cancelTaskCmd = new Command("cancel-task", "Cancel a task by id")
         {
-            new Option<string>("--id", () => string.Empty, "Task id to cancel")
+            cancelIdOption
         };
-        cancelTaskCmd.SetHandler((string id) =>
+        cancelTaskCmd.SetHandler(async (string id) =>
         {
             var state = LoadState();
             if (string.IsNullOrEmpty(id))
@@ -169,19 +181,21 @@ class Program
             }
             SaveState(state);
             Console.WriteLine("Task canceled");
-        }, cancelTaskCmd.Options[0]);
+            await Task.CompletedTask;
+        }, cancelIdOption);
 
         var clearConvCmd = new Command("clear-conversation", "Clear stored conversation");
-        clearConvCmd.SetHandler(() =>
+        clearConvCmd.SetHandler(async () =>
         {
             var state = LoadState();
             state.Conversation.Clear();
             SaveState(state);
             Console.WriteLine("Conversation cleared");
+            await Task.CompletedTask;
         });
 
         var conversationCmd = new Command("conversation", "Show conversation history");
-        conversationCmd.SetHandler(() =>
+        conversationCmd.SetHandler(async () =>
         {
             var state = LoadState();
             if (state.Conversation.Count == 0)
@@ -192,21 +206,24 @@ class Program
             {
                 Console.WriteLine(m);
             }
+            await Task.CompletedTask;
         });
 
+        var savePathOption = new Option<string>("--path") { IsRequired = true };
         var saveConvCmd = new Command("save-conversation", "Save conversation to file")
         {
-            new Option<string>("--path") { IsRequired = true }
+            savePathOption
         };
-        saveConvCmd.SetHandler((string path) =>
+        saveConvCmd.SetHandler(async (string path) =>
         {
             var state = LoadState();
             File.WriteAllLines(path, state.Conversation);
             Console.WriteLine($"Conversation saved to {path}");
-        }, saveConvCmd.Options[0]);
+            await Task.CompletedTask;
+        }, savePathOption);
 
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
-        memoryInfoCmd.SetHandler(() =>
+        memoryInfoCmd.SetHandler(async () =>
         {
             if (File.Exists(MemoryPath))
             {
@@ -217,14 +234,17 @@ class Program
             {
                 Console.WriteLine("No memory file found");
             }
+            await Task.CompletedTask;
         });
 
+        var sectionOption = new Option<string>("--section") { IsRequired = true };
+        var memoryOption = new Option<string>("--memory") { IsRequired = true };
         var addMemoryCmd = new Command("add-memory", "Add a memory entry")
         {
-            new Option<string>("--section") { IsRequired = true },
-            new Option<string>("--memory") { IsRequired = true }
+            sectionOption,
+            memoryOption
         };
-        addMemoryCmd.SetHandler((string section, string memory) =>
+        addMemoryCmd.SetHandler(async (string section, string memory) =>
         {
             var content = File.Exists(MemoryPath) ? File.ReadAllText(MemoryPath) : "";
             var sectionHeader = $"## {section}";
@@ -236,32 +256,37 @@ class Program
             content = content.Insert(insertIndex, $"\n- {memory}");
             File.WriteAllText(MemoryPath, content);
             Console.WriteLine("Memory added");
-        }, addMemoryCmd.Options[0], addMemoryCmd.Options[1]);
+            await Task.CompletedTask;
+        }, sectionOption, memoryOption);
 
+        var contentOption = new Option<string>("--content") { IsRequired = true };
         var replaceMemoryCmd = new Command("replace-memory-file", "Replace entire memory file")
         {
-            new Option<string>("--content") { IsRequired = true }
+            contentOption
         };
-        replaceMemoryCmd.SetHandler((string content) =>
+        replaceMemoryCmd.SetHandler(async (string content) =>
         {
             File.WriteAllText(MemoryPath, content);
             Console.WriteLine("Memory file replaced");
-        }, replaceMemoryCmd.Options[0]);
+            await Task.CompletedTask;
+        }, contentOption);
 
         var statePathCmd = new Command("state-path", "Show path of state file");
-        statePathCmd.SetHandler(() =>
+        statePathCmd.SetHandler(async () =>
         {
             Console.WriteLine(StatePath);
+            await Task.CompletedTask;
         });
 
         var memoryPathCmd = new Command("memory-path", "Show path of memory file");
-        memoryPathCmd.SetHandler(() =>
+        memoryPathCmd.SetHandler(async () =>
         {
             Console.WriteLine(MemoryPath);
+            await Task.CompletedTask;
         });
 
         var createMemoryCmd = new Command("create-memory-file", "Create memory file if missing");
-        createMemoryCmd.SetHandler(() =>
+        createMemoryCmd.SetHandler(async () =>
         {
             if (!File.Exists(MemoryPath))
             {
@@ -273,10 +298,11 @@ class Program
             {
                 Console.WriteLine("Memory file already exists");
             }
+            await Task.CompletedTask;
         });
 
         var parseMemoryCmd = new Command("parsed-memory", "Show parsed memory sections");
-        parseMemoryCmd.SetHandler(() =>
+        parseMemoryCmd.SetHandler(async () =>
         {
             if (!File.Exists(MemoryPath))
             {
@@ -306,20 +332,205 @@ class Program
                     Console.WriteLine($"  - {entry}");
                 }
             }
+            await Task.CompletedTask;
+        });
+
+        var currentModelCmd = new Command("current-model", "Show selected model index");
+        currentModelCmd.SetHandler(() =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.SelectedModel);
+            return Task.CompletedTask;
+        });
+
+        var listSubsCmd = new Command("subscriptions", "List active event subscriptions");
+        listSubsCmd.SetHandler(() =>
+        {
+            var state = LoadState();
+            if (state.Subscriptions.Count == 0)
+            {
+                Console.WriteLine("No subscriptions");
+            }
+            foreach (var s in state.Subscriptions)
+            {
+                Console.WriteLine(s);
+            }
+            return Task.CompletedTask;
+        });
+
+        var deleteSectionOption = new Option<string>("--section") { IsRequired = true };
+        var deleteMemorySectionCmd = new Command("delete-memory-section", "Remove a memory section")
+        {
+            deleteSectionOption
+        };
+        deleteMemorySectionCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            var lines = File.ReadAllLines(MemoryPath);
+            var result = new List<string>();
+            bool skip = false;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## "))
+                {
+                    skip = line[3..] == section;
+                    if (!skip) result.Add(line);
+                    continue;
+                }
+                if (!skip) result.Add(line);
+            }
+            File.WriteAllLines(MemoryPath, result);
+            Console.WriteLine($"Deleted section {section}");
+            await Task.CompletedTask;
+        }, deleteSectionOption);
+
+        var deleteIdOption = new Option<string>("--id") { IsRequired = true };
+        var deleteTaskCmd = new Command("delete-task", "Remove a task")
+        {
+            deleteIdOption
+        };
+        deleteTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var idx = state.Tasks.FindIndex(t => t.Id == id);
+            if (idx >= 0)
+            {
+                state.Tasks.RemoveAt(idx);
+                SaveState(state);
+                Console.WriteLine("Task removed");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, deleteIdOption);
+
+        var infoIdOption = new Option<string>("--id") { IsRequired = true };
+        var taskInfoCmd = new Command("task-info", "Show details for a task")
+        {
+            infoIdOption
+        };
+        taskInfoCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                Console.WriteLine($"Id: {task.Id}\nDescription: {task.Description}\nStatus: {task.Status}");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, infoIdOption);
+
+        var resetStateCmd = new Command("reset-state", "Delete saved state file");
+        resetStateCmd.SetHandler(async () =>
+        {
+            if (File.Exists(StatePath))
+            {
+                File.Delete(StatePath);
+                Console.WriteLine("State reset");
+            }
+            else
+            {
+                Console.WriteLine("No state file");
+            }
+            await Task.CompletedTask;
+        });
+
+        var importPathOption = new Option<string>("--path") { IsRequired = true };
+        var importStateCmd = new Command("import-state", "Load state from file")
+        {
+            importPathOption
+        };
+        importStateCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var json = File.ReadAllText(path);
+            var state = JsonSerializer.Deserialize<AppState>(json);
+            if (state != null)
+            {
+                SaveState(state);
+                Console.WriteLine("State imported");
+            }
+            else
+            {
+                Console.WriteLine("Invalid state file");
+            }
+            await Task.CompletedTask;
+        }, importPathOption);
+
+        var exportPathOption = new Option<string>("--path") { IsRequired = true };
+        var exportStateCmd = new Command("export-state", "Write state to file")
+        {
+            exportPathOption
+        };
+        exportStateCmd.SetHandler(async (string path) =>
+        {
+            var state = LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"State exported to {path}");
+            await Task.CompletedTask;
+        }, exportPathOption);
+
+        var deleteMemoryFileCmd = new Command("delete-memory-file", "Remove memory file");
+        deleteMemoryFileCmd.SetHandler(async () =>
+        {
+            if (File.Exists(MemoryPath))
+            {
+                File.Delete(MemoryPath);
+                Console.WriteLine("Memory file deleted");
+            }
+            else
+            {
+                Console.WriteLine("No memory file found");
+            }
+            await Task.CompletedTask;
+        });
+
+        var listMemorySectionsCmd = new Command("list-memory-sections", "List memory sections");
+        listMemorySectionsCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            foreach (var line in File.ReadLines(MemoryPath))
+            {
+                if (line.StartsWith("## "))
+                {
+                    Console.WriteLine(line[3..]);
+                }
+            }
+            await Task.CompletedTask;
         });
 
         var versionCmd = new Command("version", "Display CLI version");
-        versionCmd.SetHandler(() =>
+        versionCmd.SetHandler(async () =>
         {
             var version = typeof(Program).Assembly.GetName().Version?.ToString() ?? "unknown";
             Console.WriteLine($"OLI.NetCli version {version}");
+            await Task.CompletedTask;
         });
 
+        var eventOption = new Option<string>("--event") { IsRequired = true };
         var subscribeCmd = new Command("subscribe", "Subscribe to an event type")
         {
-            new Option<string>("--event") { IsRequired = true }
+            eventOption
         };
-        subscribeCmd.SetHandler((string ev) =>
+        subscribeCmd.SetHandler(async (string ev) =>
         {
             var state = LoadState();
             if (state.Subscriptions.Add(ev))
@@ -331,13 +542,14 @@ class Program
             {
                 Console.WriteLine($"Already subscribed to {ev}");
             }
-        }, subscribeCmd.Options[0]);
+            await Task.CompletedTask;
+        }, eventOption);
 
         var unsubscribeCmd = new Command("unsubscribe", "Unsubscribe from an event type")
         {
-            new Option<string>("--event") { IsRequired = true }
+            eventOption
         };
-        unsubscribeCmd.SetHandler((string ev) =>
+        unsubscribeCmd.SetHandler(async (string ev) =>
         {
             var state = LoadState();
             if (state.Subscriptions.Remove(ev))
@@ -349,7 +561,8 @@ class Program
             {
                 Console.WriteLine($"Not subscribed to {ev}");
             }
-        }, unsubscribeCmd.Options[0]);
+            await Task.CompletedTask;
+        }, eventOption);
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -358,7 +571,11 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
-            statePathCmd, versionCmd, subscribeCmd, unsubscribeCmd
+            currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
+            deleteTaskCmd, taskInfoCmd, resetStateCmd,
+            importStateCmd, exportStateCmd, deleteMemoryFileCmd,
+            listMemorySectionsCmd, statePathCmd, versionCmd,
+            subscribeCmd, unsubscribeCmd
         };
 
         return root.Invoke(args);

@@ -48,6 +48,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Implemented memory utilities `memory-path`, `create-memory-file`, and `parsed-memory`.
 - Added task lifecycle commands `create-task` and `complete-task`.
 - Implemented basic event subscription via `subscribe` and `unsubscribe`.
+- Added maintenance commands `current-model`, `subscriptions`, `delete-memory-section`,
+  `delete-task`, `task-info`, `reset-state`, `import-state`, `export-state`,
+  `delete-memory-file`, and `list-memory-sections`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
