@@ -47,6 +47,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added state inspection commands `agent-status` and `state-path`.
 - Added conversation commands `conversation` and `save-conversation`.
 - Implemented memory utilities `memory-path`, `create-memory-file`, and `parsed-memory`.
+- Introduced `AdditionalCommands.cs` to group supplemental CLI commands and keep `Program.cs` lean.
 - Added task lifecycle commands `create-task` and `complete-task`.
 - Implemented basic event subscription via `subscribe` and `unsubscribe`.
 - Added maintenance commands `current-model`, `subscriptions`, `delete-memory-section`,
@@ -116,6 +117,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added file utilities `touch-file`, `copy-directory`, `move-directory`, and `rename-directory`.
 - Added JSON helpers `read-json`, `write-json`, `json-format`, and `json-diff`.
 - Added memory inspection commands `memory-head` and `memory-tail`.
+- Added task utilities `task-rename`, `set-task-priority`, and `reopen-task`.
+- Added file checks `file-writable`, `dir-writable`, and `directory-size`.
+- Added memory utilities `memory-stats` and `memory-unique-words`.
+- Added conversation export `conversation-to-html` and RPC event viewer `rpc-events`.
+- Added command listing via `list-commands`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

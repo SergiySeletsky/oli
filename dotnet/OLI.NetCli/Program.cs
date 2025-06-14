@@ -20,7 +20,7 @@ class Program
     static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
     static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
     static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
-    static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
+    public static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
     static readonly string LspPath = Path.Combine(AppContext.BaseDirectory, "lsp.json");
 
     static List<TaskRecord> LoadTasks()
@@ -93,7 +93,7 @@ class Program
         File.WriteAllText(SummariesPath, JsonSerializer.Serialize(summaries, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    static AppState LoadState()
+    public static AppState LoadState()
     {
         var state = File.Exists(StatePath)
             ? JsonSerializer.Deserialize<AppState>(File.ReadAllText(StatePath)) ?? new AppState()
@@ -107,7 +107,7 @@ class Program
         return state;
     }
 
-    static void SaveState(AppState state)
+    public static void SaveState(AppState state)
     {
         File.WriteAllText(StatePath, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
         SaveTasks(state.Tasks);
@@ -2879,6 +2879,8 @@ class Program
             purgeFailedCmd, tasksOverviewCmd,
             lspSymbolsCmd, lspCodeLensCmd, lspTokensCmd, lspDefCmd, lspRootCmd
         };
+
+        AdditionalCommands.Register(root);
 
         return root.Invoke(args);
     }

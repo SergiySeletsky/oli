@@ -8,4 +8,5 @@ public class TaskRecord
     public int ToolCount { get; set; }
     public int InputTokens { get; set; }
     public int OutputTokens { get; set; }
+    public int Priority { get; set; } = 0;
 }
