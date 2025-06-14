@@ -12,6 +12,11 @@ public class TaskRecord
     public string Id { get; set; } = Guid.NewGuid().ToString();
     public string Description { get; set; } = string.Empty;
     public string Status { get; set; } = "in-progress";
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public int ToolCount { get; set; }
+    public int InputTokens { get; set; }
+    public int OutputTokens { get; set; }
 }
 
 public class AppState
@@ -119,7 +124,8 @@ class Program
             }
             foreach (var t in state.Tasks)
             {
-                Console.WriteLine($"{t.Id}: {t.Description} [{t.Status}]");
+                var duration = (t.UpdatedAt - t.CreatedAt).TotalSeconds;
+                Console.WriteLine($"{t.Id}: {t.Description} [{t.Status}] Tools:{t.ToolCount} Tokens:{t.InputTokens}/{t.OutputTokens} Duration:{duration:F0}s");
             }
             await Task.CompletedTask;
         });
@@ -132,7 +138,12 @@ class Program
         createTaskCmd.SetHandler(async (string description) =>
         {
             var state = LoadState();
-            var task = new TaskRecord { Description = description };
+            var task = new TaskRecord
+            {
+                Description = description,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
             state.Tasks.Add(task);
             SaveState(state);
             Console.WriteLine($"Created task {task.Id}");
@@ -140,17 +151,20 @@ class Program
         }, descriptionOption);
 
         var completeIdOption = new Option<string>("--id") { IsRequired = true };
+        var outputTokensOption = new Option<int>("--output-tokens", () => 0);
         var completeTaskCmd = new Command("complete-task", "Mark a task as completed")
         {
-            completeIdOption
+            completeIdOption, outputTokensOption
         };
-        completeTaskCmd.SetHandler(async (string id) =>
+        completeTaskCmd.SetHandler(async (string id, int outputTokens) =>
         {
             var state = LoadState();
             var task = state.Tasks.Find(t => t.Id == id);
             if (task != null)
             {
                 task.Status = "completed";
+                task.OutputTokens = outputTokens;
+                task.UpdatedAt = DateTime.UtcNow;
                 SaveState(state);
                 Console.WriteLine("Task completed");
             }
@@ -159,7 +173,7 @@ class Program
                 Console.WriteLine("Task not found");
             }
             await Task.CompletedTask;
-        }, completeIdOption);
+        }, completeIdOption, outputTokensOption);
 
         var cancelIdOption = new Option<string>("--id", () => string.Empty, "Task id to cancel");
         var cancelTaskCmd = new Command("cancel-task", "Cancel a task by id")
@@ -185,6 +199,74 @@ class Program
             Console.WriteLine("Task canceled");
             await Task.CompletedTask;
         }, cancelIdOption);
+
+        var statsIdOpt = new Option<string>("--id") { IsRequired = true };
+        var taskStatsCmd = new Command("task-stats", "Show task details")
+        {
+            statsIdOpt
+        };
+        taskStatsCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                var duration = (task.UpdatedAt - task.CreatedAt).TotalSeconds;
+                Console.WriteLine($"Id: {task.Id}\nDesc: {task.Description}\nStatus: {task.Status}\nTools: {task.ToolCount}\nInput Tokens: {task.InputTokens}\nOutput Tokens: {task.OutputTokens}\nDuration: {duration:F0}s");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, statsIdOpt);
+
+        var addTokensIdOpt = new Option<string>("--id") { IsRequired = true };
+        var tokensOpt = new Option<int>("--tokens") { IsRequired = true };
+        var addInputTokensCmd = new Command("add-input-tokens", "Add tokens to a task")
+        {
+            addTokensIdOpt, tokensOpt
+        };
+        addInputTokensCmd.SetHandler(async (string id, int tokens) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                task.InputTokens += tokens;
+                task.UpdatedAt = DateTime.UtcNow;
+                SaveState(state);
+                Console.WriteLine($"Added {tokens} tokens");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, addTokensIdOpt, tokensOpt);
+
+        var toolIdOpt = new Option<string>("--id") { IsRequired = true };
+        var addToolUseCmd = new Command("add-tool-use", "Increment tool count")
+        {
+            toolIdOpt
+        };
+        addToolUseCmd.SetHandler(async (string id) =>
+        {
+            var state = LoadState();
+            var task = state.Tasks.Find(t => t.Id == id);
+            if (task != null)
+            {
+                task.ToolCount += 1;
+                task.UpdatedAt = DateTime.UtcNow;
+                SaveState(state);
+                Console.WriteLine("Tool count updated");
+            }
+            else
+            {
+                Console.WriteLine("Task not found");
+            }
+            await Task.CompletedTask;
+        }, toolIdOpt);
 
         var clearConvCmd = new Command("clear-conversation", "Clear stored conversation");
         clearConvCmd.SetHandler(async () =>
@@ -284,6 +366,13 @@ class Program
         memoryPathCmd.SetHandler(async () =>
         {
             Console.WriteLine(MemoryPath);
+            await Task.CompletedTask;
+        });
+
+        var memoryExistsCmd = new Command("memory-exists", "Check for memory file");
+        memoryExistsCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(File.Exists(MemoryPath) ? "true" : "false");
             await Task.CompletedTask;
         });
 
@@ -441,6 +530,18 @@ class Program
             await Task.CompletedTask;
         }, readPathOption, contentOption2);
 
+        var genWriteDiffCmd = new Command("generate-write-diff", "Preview diff without writing")
+        {
+            readPathOption, contentOption2
+        };
+        genWriteDiffCmd.SetHandler(async (string path, string content) =>
+        {
+            var old = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            var diff = GenerateDiff(old, content);
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, readPathOption, contentOption2);
+
         var oldOpt = new Option<string>("--old") { IsRequired = true };
         var newOpt = new Option<string>("--new") { IsRequired = true };
         var editFileCmd = new Command("edit-file", "Replace text in a file")
@@ -462,6 +563,24 @@ class Program
             await Task.CompletedTask;
         }, readPathOption, oldOpt, newOpt);
 
+        var genEditDiffCmd = new Command("generate-edit-diff", "Preview edit diff")
+        {
+            readPathOption, oldOpt, newOpt
+        };
+        genEditDiffCmd.SetHandler(async (string path, string oldStr, string newStr) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var content = File.ReadAllText(path);
+            var newContent = content.Replace(oldStr, newStr);
+            var diff = GenerateDiff(content, newContent);
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, readPathOption, oldOpt, newOpt);
+
         var dirPathOption = new Option<string>("--path", () => ".");
         var listDirCmd = new Command("list-directory", "List directory contents") { dirPathOption };
         listDirCmd.SetHandler(async (string path) =>
@@ -477,6 +596,61 @@ class Program
             }
             await Task.CompletedTask;
         }, dirPathOption);
+
+        var createDirCmd = new Command("create-directory", "Create a directory") { dirPathOption };
+        createDirCmd.SetHandler(async (string path) =>
+        {
+            Directory.CreateDirectory(path);
+            Console.WriteLine($"Created {path}");
+            await Task.CompletedTask;
+        }, dirPathOption);
+
+        var globPatternOpt = new Option<string>("--pattern") { IsRequired = true };
+        var globSearchCmd = new Command("glob-search", "Search files by glob pattern") { globPatternOpt };
+        globSearchCmd.SetHandler(async (string pattern) =>
+        {
+            var files = Directory.GetFiles(".", pattern, SearchOption.AllDirectories);
+            foreach (var f in files) Console.WriteLine(f);
+            await Task.CompletedTask;
+        }, globPatternOpt);
+
+        var globDirOpt = new Option<string>("--dir") { IsRequired = true };
+        var globSearchInDirCmd = new Command("glob-search-in-dir", "Glob search in directory") { globDirOpt, globPatternOpt };
+        globSearchInDirCmd.SetHandler(async (string dir, string pattern) =>
+        {
+            if (!Directory.Exists(dir))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            var files = Directory.GetFiles(dir, pattern, SearchOption.AllDirectories);
+            foreach (var f in files) Console.WriteLine(f);
+            await Task.CompletedTask;
+        }, globDirOpt, globPatternOpt);
+
+        var grepPatternOpt = new Option<string>("--pattern") { IsRequired = true };
+        var grepDirOpt = new Option<string>("--dir", () => ".");
+        var grepSearchCmd = new Command("grep-search", "Regex search in files") { grepPatternOpt, grepDirOpt };
+        grepSearchCmd.SetHandler(async (string pattern, string dir) =>
+        {
+            if (!Directory.Exists(dir))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            foreach (var file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
+            {
+                foreach (var (line, index) in File.ReadLines(file).Select((l, i) => (l, i + 1)))
+                {
+                    if (regex.IsMatch(line))
+                    {
+                        Console.WriteLine($"{file}:{index}:{line}");
+                    }
+                }
+            }
+            await Task.CompletedTask;
+        }, grepPatternOpt, grepDirOpt);
 
         var fileInfoCmd = new Command("file-info", "Show file metadata") { readPathOption };
         fileInfoCmd.SetHandler(async (string path) =>
@@ -730,12 +904,15 @@ class Program
             summarizeCmd, convStatsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd,
-            listDirCmd, fileInfoCmd,
+            genWriteDiffCmd, genEditDiffCmd,
+            listDirCmd, createDirCmd, fileInfoCmd,
+            globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
-            deleteTaskCmd, taskInfoCmd, resetStateCmd,
+            deleteTaskCmd, taskInfoCmd, taskStatsCmd,
+            addInputTokensCmd, addToolUseCmd, resetStateCmd,
             importStateCmd, exportStateCmd, deleteMemoryFileCmd,
             listMemorySectionsCmd, statePathCmd, versionCmd,
-            subscribeCmd, unsubscribeCmd
+            memoryExistsCmd, subscribeCmd, unsubscribeCmd
         };
 
         return root.Invoke(args);

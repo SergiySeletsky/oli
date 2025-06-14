@@ -54,13 +54,19 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation utilities `summarize-conversation` and `conversation-stats`.
 - Added file commands `read-file`, `read-file-numbered`, `read-file-lines`,
   `write-file`, `write-file-diff`, `edit-file`, `list-directory`, and `file-info`.
+- Extended task tracking with timestamps, token counters, and tool counts.
+- Added task utilities `task-stats`, `add-input-tokens`, and `add-tool-use`.
+- Added filesystem commands `generate-write-diff`, `generate-edit-diff`,
+  `create-directory`, `glob-search`, `glob-search-in-dir`, and `grep-search`.
+- Added `memory-exists` command to check for the memory file.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
 - Persist conversation history and implement tool integrations similar to the Rust backend.
-- Expand task tracking to include durations and token counts.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
 - Add real-time event streaming support to mirror Rust subscriptions.
 - Replace basic diff implementation with a robust algorithm and hook up LLM
   summarization for conversation utilities.
+- Improve search commands to respect ignore files and binary detection.
+- Begin porting LSP-based code intelligence features.
