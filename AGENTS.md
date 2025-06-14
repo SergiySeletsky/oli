@@ -33,15 +33,20 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 2. Persist CLI state (such as selected model and agent mode) in a file.
 3. Integrate LLM capabilities using packages like [AutoGen.NET](https://github.com/microsoft/autogen) or [Semantic Kernel](https://github.com/microsoft/semantic-kernel).
 4. Achieve feature parity with the Rust CLI before deprecating it.
+5. Migrate features incrementally, implementing at least ten per agent run and recording progress here.
 
 ### Accomplished
 - Created the `dotnet/OLI.NetCli` project with `run`, `agent-mode`, and `models` commands.
 - Added basic JSON-based state persistence in `Program.cs`.
 - Implemented a `version` command to display the CLI version.
+- Added `set-model` command for selecting the active model.
+- Added task management commands `tasks` and `cancel-task`.
+- Added conversation management via `clear-conversation`.
+- Ported memory commands `memory-info`, `add-memory`, and `replace-memory-file`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
-- Bring over conversation history and tool integration features from the Rust CLI.
-- Port memory management and conversation clearing APIs from Rust to the .NET CLI.
+- Persist conversation history and implement tool integrations similar to the Rust backend.
+- Expand task tracking to include durations and token counts.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
