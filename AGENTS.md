@@ -216,6 +216,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `validate-api-key`, `determine-provider`, `display-to-session`,
   `session-to-display`, and `summarize-text` into `AdditionalCommands.cs`.
 - Moved file operation commands into `FileCommands.cs` for better organization.
+- Split conversation summary features into `SummaryCommands.cs` and added JSON
+  helpers in `JsonCommands.cs`.
+- Added binary file utilities and hashing commands to `FileCommands.cs`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -230,3 +233,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
 - Hook up automatic conversation compression to LLM summarization.
 - Implement RPC-based event streaming for subscriptions in the .NET CLI.
+- Continue migrating commands from `Program.cs` into dedicated modules.

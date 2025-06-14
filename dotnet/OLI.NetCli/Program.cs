@@ -1597,14 +1597,6 @@ class Program
             await Task.CompletedTask;
         });
 
-        var summaryCountCmd = new Command("summary-count", "Show number of conversation summaries");
-        summaryCountCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            Console.WriteLine(state.ConversationSummaries.Count);
-            await Task.CompletedTask;
-        });
-
         var clearSummariesCmd = new Command("clear-summaries", "Remove all conversation summaries");
         clearSummariesCmd.SetHandler(async () =>
         {
@@ -1728,253 +1720,7 @@ class Program
             await Task.CompletedTask;
         });
 
-        var showSummariesCmd = new Command("show-summaries", "Display conversation summaries");
-        showSummariesCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.ConversationSummaries.Count == 0)
-            {
-                Console.WriteLine("No summaries");
-            }
-            for (int i = 0; i < state.ConversationSummaries.Count; i++)
-            {
-                var s = state.ConversationSummaries[i];
-                Console.WriteLine($"[{i}] {s.Content} ({s.MessagesCount} msgs, {s.OriginalChars} chars)");
-            }
-            await Task.CompletedTask;
-        });
 
-        var exportSummariesPathOpt = new Option<string>("--path") { IsRequired = true };
-        var exportSummariesCmd = new Command("export-summaries", "Export summaries to file")
-        {
-            exportSummariesPathOpt
-        };
-        exportSummariesCmd.SetHandler(async (string path) =>
-        {
-            var state = LoadState();
-            File.WriteAllText(path, JsonSerializer.Serialize(state.ConversationSummaries, new JsonSerializerOptions { WriteIndented = true }));
-            Console.WriteLine($"Summaries exported to {path}");
-            await Task.CompletedTask;
-        }, exportSummariesPathOpt);
-
-        var importSummariesPathOpt = new Option<string>("--path") { IsRequired = true };
-        var importSummariesCmd = new Command("import-summaries", "Load summaries from file")
-        {
-            importSummariesPathOpt
-        };
-        importSummariesCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            var json = File.ReadAllText(path);
-            var summaries = JsonSerializer.Deserialize<List<ConversationSummary>>(json);
-            if (summaries != null)
-            {
-                var state = LoadState();
-                state.ConversationSummaries = summaries;
-                SaveState(state);
-                Console.WriteLine("Summaries imported");
-            }
-            else
-            {
-                Console.WriteLine("Invalid summaries file");
-            }
-            await Task.CompletedTask;
-        }, importSummariesPathOpt);
-
-        var deleteSummaryIndexOpt = new Option<int>("--index") { IsRequired = true };
-        var deleteSummaryCmd = new Command("delete-summary", "Remove a summary by index") { deleteSummaryIndexOpt };
-        deleteSummaryCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.ConversationSummaries.Count)
-            {
-                state.ConversationSummaries.RemoveAt(index);
-                SaveState(state);
-                Console.WriteLine("Summary deleted");
-            }
-            else
-            {
-                Console.WriteLine("Invalid index");
-            }
-            await Task.CompletedTask;
-        }, deleteSummaryIndexOpt);
-
-        var latestSummaryCmd = new Command("latest-summary", "Show the latest summary");
-        latestSummaryCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.ConversationSummaries.Count == 0)
-            {
-                Console.WriteLine("none");
-                await Task.CompletedTask;
-                return;
-            }
-            var last = state.ConversationSummaries[^1];
-            Console.WriteLine(last.Content);
-            await Task.CompletedTask;
-        });
-
-        var summaryInfoIndexOpt = new Option<int>("--index") { IsRequired = true };
-        var summaryInfoCmd = new Command("summary-info", "Show summary details") { summaryInfoIndexOpt };
-        summaryInfoCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.ConversationSummaries.Count)
-            {
-                var s = state.ConversationSummaries[index];
-                Console.WriteLine(JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
-            }
-            else
-            {
-                Console.WriteLine("Invalid index");
-            }
-            await Task.CompletedTask;
-        }, summaryInfoIndexOpt);
-
-        var summaryExistsCmd = new Command("summary-exists", "Check if summary index exists") { summaryInfoIndexOpt };
-        summaryExistsCmd.SetHandler(async (int index) =>
-        {
-            var state = LoadState();
-            Console.WriteLine(index >= 0 && index < state.ConversationSummaries.Count ? "true" : "false");
-            await Task.CompletedTask;
-        }, summaryInfoIndexOpt);
-
-        var appendSummaryTextOpt = new Option<string>("--text") { IsRequired = true };
-        var appendSummaryCmd = new Command("append-summary", "Append text to a summary") { summaryInfoIndexOpt, appendSummaryTextOpt };
-        appendSummaryCmd.SetHandler(async (int index, string text) =>
-        {
-            var state = LoadState();
-            if (index >= 0 && index < state.ConversationSummaries.Count)
-            {
-                state.ConversationSummaries[index].Content += " " + text;
-                SaveState(state);
-                Console.WriteLine("updated");
-            }
-            else
-            {
-                Console.WriteLine("Invalid index");
-            }
-            await Task.CompletedTask;
-        }, summaryInfoIndexOpt, appendSummaryTextOpt);
-
-        var startRangeOpt = new Option<int>("--start") { IsRequired = true };
-        var endRangeOpt = new Option<int>("--end") { IsRequired = true };
-        var deleteSummaryRangeCmd = new Command("delete-summary-range", "Delete summaries in range") { startRangeOpt, endRangeOpt };
-        deleteSummaryRangeCmd.SetHandler(async (int start, int end) =>
-        {
-            var state = LoadState();
-            if (start >= 0 && end >= start && end < state.ConversationSummaries.Count)
-            {
-                state.ConversationSummaries.RemoveRange(start, end - start + 1);
-                SaveState(state);
-                Console.WriteLine("Summaries removed");
-            }
-            else
-            {
-                Console.WriteLine("Invalid range");
-            }
-            await Task.CompletedTask;
-        }, startRangeOpt, endRangeOpt);
-
-        var readPathOption = new Option<string>("--path") { IsRequired = true };
-
-        var readBinaryCmd = new Command("read-binary-file", "Read file as base64") { readPathOption };
-        readBinaryCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            var bytes = await File.ReadAllBytesAsync(path);
-            Console.WriteLine(Convert.ToBase64String(bytes));
-        }, readPathOption);
-
-        var writeBinaryContentOpt = new Option<string>("--base64") { IsRequired = true };
-        var writeBinaryCmd = new Command("write-binary-file", "Write base64 content to file") { readPathOption, writeBinaryContentOpt };
-        writeBinaryCmd.SetHandler(async (string path, string b64) =>
-        {
-            byte[] data;
-            try
-            {
-                data = Convert.FromBase64String(b64);
-            }
-            catch
-            {
-                Console.WriteLine("Invalid base64 data");
-                return;
-            }
-            await File.WriteAllBytesAsync(path, data);
-            Console.WriteLine("Binary file written");
-        }, readPathOption, writeBinaryContentOpt);
-
-        var fileHashCmd = new Command("file-hash", "Compute SHA256 hash of a file") { readPathOption };
-        fileHashCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            using var sha = System.Security.Cryptography.SHA256.Create();
-            await using var stream = File.OpenRead(path);
-            var hash = await sha.ComputeHashAsync(stream);
-            Console.WriteLine(Convert.ToHexString(hash).ToLower());
-        }, readPathOption);
-
-        var fileWordCountCmd = new Command("file-word-count", "Count words in a file") { readPathOption };
-        fileWordCountCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            var text = await File.ReadAllTextAsync(path);
-            var count = text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
-            Console.WriteLine(count);
-        }, readPathOption);
-
-        var readJsonCmd = new Command("read-json", "Pretty print JSON file") { readPathOption };
-        readJsonCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
-            Console.WriteLine(JsonUtils.ReadPretty(path));
-            await Task.CompletedTask;
-        }, readPathOption);
-
-        var jsonInputOpt = new Option<string>("--json") { IsRequired = true };
-        var writeJsonCmd = new Command("write-json", "Write JSON to file") { readPathOption, jsonInputOpt };
-        writeJsonCmd.SetHandler(async (string path, string json) =>
-        {
-            JsonUtils.Write(path, json);
-            Console.WriteLine("JSON written");
-            await Task.CompletedTask;
-        }, readPathOption, jsonInputOpt);
-
-        var formatJsonCmd = new Command("json-format", "Format JSON string") { jsonInputOpt };
-        formatJsonCmd.SetHandler(async (string json) =>
-        {
-            Console.WriteLine(JsonUtils.Format(json));
-            await Task.CompletedTask;
-        }, jsonInputOpt);
-
-        var diffPathBOpt = new Option<string>("--other") { IsRequired = true };
-        var jsonDiffCmd = new Command("json-diff", "Diff two JSON files") { readPathOption, diffPathBOpt };
-        jsonDiffCmd.SetHandler(async (string path, string other) =>
-        {
-            if (!File.Exists(path) || !File.Exists(other))
-            {
-                Console.WriteLine("File not found");
-                return;
-            }
-            Console.WriteLine(JsonUtils.Diff(path, other));
-            await Task.CompletedTask;
-        }, readPathOption, diffPathBOpt);
 
         var currentModelCmd = new Command("current-model", "Show selected model index");
         currentModelCmd.SetHandler(() =>
@@ -2288,9 +2034,8 @@ class Program
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
             sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd, memoryLinesCmd, memoryHeadCmd, memoryTailCmd, insertMemoryCmd, replaceMemoryLinesCmd,
             summarizeCmd, convStatsCmd,
-            convCharCountCmd, convWordCountCmd, summaryCountCmd, clearSummariesCmd, compressConvCmd,
-            clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
-            importSummariesCmd, deleteSummaryCmd,
+            convCharCountCmd, convWordCountCmd, clearSummariesCmd, compressConvCmd,
+            clearHistoryCmd,
             setAutoCompressCmd, setThresholdsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
@@ -2306,12 +2051,9 @@ class Program
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
             importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, listConvCmd, conversationAtCmd, deleteBeforeCmd, deleteAfterCmd, deleteContainsCmd, reverseConvCmd, exportConvCmd, deleteConvMsgCmd,
-            latestSummaryCmd, summaryInfoCmd, deleteSummaryRangeCmd,
-            summaryExistsCmd, appendSummaryCmd,
+            deleteSummaryRangeCmd,
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,
-            readBinaryCmd, writeBinaryCmd, fileHashCmd, fileWordCountCmd,
-            readJsonCmd, writeJsonCmd, formatJsonCmd, jsonDiffCmd,
             runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd,
             purgeFailedCmd, tasksOverviewCmd
         };
@@ -2319,6 +2061,8 @@ class Program
         LspCommands.Register(root);
         AdditionalCommands.Register(root);
         FileCommands.Register(root);
+        SummaryCommands.Register(root);
+        JsonCommands.Register(root);
         ApiKeyCommands.Register(root);
         NetworkCommands.Register(root);
         LogCommands.Register(root);

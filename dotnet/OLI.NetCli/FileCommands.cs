@@ -329,5 +329,49 @@ public static class FileCommands
         root.Add(dirExistsCmd);
         root.Add(fileInfoCmd);
         root.Add(countLinesCmd);
+
+        var binPathArg = new Argument<string>("path");
+        var base64Opt = new Option<string>("--base64") { IsRequired = true };
+        var readBinaryCmd = new Command("read-binary-file", "Read file as base64") { binPathArg };
+        readBinaryCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            var bytes = await File.ReadAllBytesAsync(path);
+            Console.WriteLine(Convert.ToBase64String(bytes));
+        }, binPathArg);
+
+        var writeBinaryCmd = new Command("write-binary-file", "Write base64 content to file") { binPathArg, base64Opt };
+        writeBinaryCmd.SetHandler(async (string path, string b64) =>
+        {
+            byte[] data;
+            try { data = Convert.FromBase64String(b64); }
+            catch { Console.WriteLine("Invalid base64 data"); return; }
+            await File.WriteAllBytesAsync(path, data);
+            Console.WriteLine("Binary file written");
+        }, binPathArg, base64Opt);
+
+        var fileHashCmd = new Command("file-hash", "Compute SHA256 hash of a file") { binPathArg };
+        fileHashCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            using var sha = System.Security.Cryptography.SHA256.Create();
+            await using var stream = File.OpenRead(path);
+            var hash = await sha.ComputeHashAsync(stream);
+            Console.WriteLine(Convert.ToHexString(hash).ToLower());
+        }, binPathArg);
+
+        var fileWordCountCmd = new Command("file-word-count", "Count words in a file") { binPathArg };
+        fileWordCountCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            var text = await File.ReadAllTextAsync(path);
+            var count = text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+            Console.WriteLine(count);
+        }, binPathArg);
+
+        root.Add(readBinaryCmd);
+        root.Add(writeBinaryCmd);
+        root.Add(fileHashCmd);
+        root.Add(fileWordCountCmd);
     }
 }
