@@ -130,6 +130,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added log management commands `log-path`, `search-log`, and `export-log`.
 - Added backup utilities `backup-state`, `restore-state`, `backup-memory`, `restore-memory`, `backup-conversation`, `restore-conversation`, and `list-backups`.
 - Extracted logging helpers into `LogUtils` and introduced `BackupUtils` for file backups.
+- Added backup commands `backup-tasks`, `restore-tasks`, `backup-tools`, `restore-tools`, `backup-summaries`, `restore-summaries`, `backup-lsp`, `restore-lsp`, and `backup-all`.
+- Added task listing command `tasks-by-priority`.
+- Added conversation editing via `conversation-insert` and state inspection with `open-state`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

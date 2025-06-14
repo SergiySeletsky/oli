@@ -394,6 +394,96 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, restoreConvArg);
 
+        // backup-tasks
+        var backupTasksCmd = new Command("backup-tasks", "Backup tasks file");
+        backupTasksCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.TasksPath, "tasks.json");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-tasks
+        var restoreTasksArg = new Argument<string>("path");
+        var restoreTasksCmd = new Command("restore-tasks", "Restore tasks from backup") { restoreTasksArg };
+        restoreTasksCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.TasksPath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreTasksArg);
+
+        // backup-tools
+        var backupToolsCmd = new Command("backup-tools", "Backup tools file");
+        backupToolsCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.ToolsPath, "tools.json");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-tools
+        var restoreToolsArg = new Argument<string>("path");
+        var restoreToolsCmd = new Command("restore-tools", "Restore tools from backup") { restoreToolsArg };
+        restoreToolsCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.ToolsPath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreToolsArg);
+
+        // backup-summaries
+        var backupSummCmd = new Command("backup-summaries", "Backup summaries file");
+        backupSummCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.SummariesPath, "summaries.json");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-summaries
+        var restoreSummArg = new Argument<string>("path");
+        var restoreSummCmd = new Command("restore-summaries", "Restore summaries from backup") { restoreSummArg };
+        restoreSummCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.SummariesPath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreSummArg);
+
+        // backup-lsp
+        var backupLspCmd = new Command("backup-lsp", "Backup LSP server list");
+        backupLspCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.LspPath, "lsp.json");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-lsp
+        var restoreLspArg = new Argument<string>("path");
+        var restoreLspCmd = new Command("restore-lsp", "Restore LSP list from backup") { restoreLspArg };
+        restoreLspCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.LspPath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreLspArg);
+
+        // backup-all
+        var backupAllCmd = new Command("backup-all", "Backup all major data files");
+        backupAllCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(BackupUtils.BackupFile(Program.StatePath, "state.json"));
+            Console.WriteLine(BackupUtils.BackupFile(Program.MemoryPath, "memory.md"));
+            Console.WriteLine(BackupUtils.BackupFile(Program.ConversationPath, "conversation.json"));
+            Console.WriteLine(BackupUtils.BackupFile(Program.TasksPath, "tasks.json"));
+            Console.WriteLine(BackupUtils.BackupFile(Program.SummariesPath, "summaries.json"));
+            Console.WriteLine(BackupUtils.BackupFile(Program.ToolsPath, "tools.json"));
+            Console.WriteLine(BackupUtils.BackupFile(Program.LspPath, "lsp.json"));
+            await Task.CompletedTask;
+        });
+
         // list-backups
         var listBackupsCmd = new Command("list-backups", "List backup files");
         listBackupsCmd.SetHandler(async () =>
@@ -402,6 +492,43 @@ public static class AdditionalCommands
             {
                 foreach (var file in Directory.GetFiles(BackupUtils.BackupDir)) Console.WriteLine(file);
             }
+            await Task.CompletedTask;
+        });
+
+        // tasks-by-priority
+        var tasksByPriorityCmd = new Command("tasks-by-priority", "List tasks sorted by priority");
+        tasksByPriorityCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.OrderByDescending(t => t.Priority))
+                Console.WriteLine($"{t.Priority}: {t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // conversation-insert
+        var insertIdxOpt = new Option<int>("--index") { IsRequired = true };
+        var insertTextOpt = new Option<string>("--text") { IsRequired = true };
+        var convInsertCmd = new Command("conversation-insert", "Insert message at index") { insertIdxOpt, insertTextOpt };
+        convInsertCmd.SetHandler(async (int index, string text) =>
+        {
+            var state = Program.LoadState();
+            if (index < 0 || index > state.Conversation.Count)
+            {
+                Console.WriteLine("Invalid index");
+                return;
+            }
+            state.Conversation.Insert(index, text);
+            Program.SaveState(state);
+            Console.WriteLine("Inserted");
+            await Task.CompletedTask;
+        }, insertIdxOpt, insertTextOpt);
+
+        // open-state
+        var openStateCmd = new Command("open-state", "Open state.json in default editor");
+        openStateCmd.SetHandler(async () =>
+        {
+            var psi = new ProcessStartInfo(Program.StatePath) { UseShellExecute = true };
+            Process.Start(psi);
             await Task.CompletedTask;
         });
 
@@ -420,7 +547,19 @@ public static class AdditionalCommands
         root.Add(restoreMemoryCmd);
         root.Add(backupConvCmd);
         root.Add(restoreConvCmd);
+        root.Add(backupTasksCmd);
+        root.Add(restoreTasksCmd);
+        root.Add(backupToolsCmd);
+        root.Add(restoreToolsCmd);
+        root.Add(backupSummCmd);
+        root.Add(restoreSummCmd);
+        root.Add(backupLspCmd);
+        root.Add(restoreLspCmd);
+        root.Add(backupAllCmd);
         root.Add(listBackupsCmd);
+        root.Add(tasksByPriorityCmd);
+        root.Add(convInsertCmd);
+        root.Add(openStateCmd);
         root.Add(taskRename);
         root.Add(setPriority);
         root.Add(reopenTask);

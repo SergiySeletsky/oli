@@ -22,7 +22,7 @@ class Program
     public static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
     public static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
     public static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
-    static readonly string LspPath = Path.Combine(AppContext.BaseDirectory, "lsp.json");
+    public static readonly string LspPath = Path.Combine(AppContext.BaseDirectory, "lsp.json");
 
     static List<TaskRecord> LoadTasks()
     {
