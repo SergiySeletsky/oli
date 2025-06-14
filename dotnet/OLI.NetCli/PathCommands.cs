@@ -44,5 +44,26 @@ public static class PathCommands
         root.Add(openConv);
         root.Add(openSums);
         root.Add(openLsp);
+
+        // tasks-path
+        var tasksPathCmd = new Command("tasks-path", "Show tasks file path");
+        tasksPathCmd.SetHandler(() => { Console.WriteLine(Program.TasksPath); return Task.CompletedTask; });
+
+        // conversation-path
+        var conversationPathCmd = new Command("conversation-path", "Show conversation file path");
+        conversationPathCmd.SetHandler(() => { Console.WriteLine(Program.ConversationPath); return Task.CompletedTask; });
+
+        // summaries-path
+        var summariesPathCmd = new Command("summaries-path", "Show summaries file path");
+        summariesPathCmd.SetHandler(() => { Console.WriteLine(Program.SummariesPath); return Task.CompletedTask; });
+
+        // tools-path
+        var toolsPathCmd = new Command("tools-path", "Show tools file path");
+        toolsPathCmd.SetHandler(() => { Console.WriteLine(Program.ToolsPath); return Task.CompletedTask; });
+
+        root.Add(tasksPathCmd);
+        root.Add(conversationPathCmd);
+        root.Add(summariesPathCmd);
+        root.Add(toolsPathCmd);
     }
 }
