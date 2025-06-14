@@ -97,6 +97,124 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // show-config
+        var showConfigCmd = new Command("show-config", "Display configuration settings");
+        showConfigCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine($"Model:{state.SelectedModel} AgentMode:{state.AgentMode} AutoCompress:{state.AutoCompress} CharThresh:{state.CompressCharThreshold} MsgThresh:{state.CompressMessageThreshold} WorkingDir:{state.WorkingDirectory}");
+            await Task.CompletedTask;
+        });
+
+        // estimate-tokens
+        var estTextArg = new Argument<string>("text");
+        var estimateTokensCmd = new Command("estimate-tokens", "Rough token estimate") { estTextArg };
+        estimateTokensCmd.SetHandler(async (string text) =>
+        {
+            Console.WriteLine(Program.EstimateTokens(text));
+            await Task.CompletedTask;
+        }, estTextArg);
+
+        // extract-metadata
+        var metaMsgArg = new Argument<string>("message");
+        var extractMetaCmd = new Command("extract-metadata", "Parse file path and line count") { metaMsgArg };
+        extractMetaCmd.SetHandler(async (string message) =>
+        {
+            var (file, lines) = Program.ExtractToolMetadata(message);
+            Console.WriteLine(JsonSerializer.Serialize(new { file, lines }));
+            await Task.CompletedTask;
+        }, metaMsgArg);
+
+        // tool-description
+        var toolNameArg = new Argument<string>("name");
+        var fileArg = new Option<string?>("--file");
+        var linesArg = new Option<int?>("--lines");
+        var toolDescCmd = new Command("tool-description", "Get description for a tool") { toolNameArg, fileArg, linesArg };
+        toolDescCmd.SetHandler(async (string name, string? file, int? lines) =>
+        {
+            Console.WriteLine(Program.ToolDescription(name, file, lines));
+            await Task.CompletedTask;
+        }, toolNameArg, fileArg, linesArg);
+
+        // has-active-tasks
+        var hasActiveCmd = new Command("has-active-tasks", "Any tasks in progress?");
+        hasActiveCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Tasks.Any(t => t.Status == "in-progress") ? "true" : "false");
+            await Task.CompletedTask;
+        });
+
+        // task-statuses
+        var taskStatusesCmd = new Command("task-statuses", "JSON of task statuses");
+        taskStatusesCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var statuses = state.Tasks.Select(t => new { t.Id, t.Description, t.Status, t.ToolCount, t.InputTokens, t.OutputTokens, CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt });
+            Console.WriteLine(JsonSerializer.Serialize(statuses, new JsonSerializerOptions { WriteIndented = true }));
+            await Task.CompletedTask;
+        });
+
+        // validate-api-key
+        var keyModelArg = new Argument<string>("model");
+        var apiKeyArg = new Argument<string>("key");
+        var validateKeyCmd = new Command("validate-api-key", "Check API key for model") { keyModelArg, apiKeyArg };
+        validateKeyCmd.SetHandler(async (string model, string key) =>
+        {
+            Console.WriteLine(Program.ValidateApiKey(model, key) ? "valid" : "invalid");
+            await Task.CompletedTask;
+        }, keyModelArg, apiKeyArg);
+
+        // determine-provider
+        var modelFileArg = new Argument<string>("file");
+        var determineProviderCmd = new Command("determine-provider", "Show provider and agent model") { keyModelArg, apiKeyArg, modelFileArg };
+        determineProviderCmd.SetHandler(async (string model, string key, string file) =>
+        {
+            var (prov, agent) = Program.DetermineProvider(model, key, file);
+            Console.WriteLine($"{prov}:{agent}");
+            await Task.CompletedTask;
+        }, keyModelArg, apiKeyArg, modelFileArg);
+
+        // display-to-session
+        var displayPathArg = new Argument<string>("path");
+        var displayToSessionCmd = new Command("display-to-session", "Convert display messages to session format") { displayPathArg };
+        displayToSessionCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var session = Program.DisplayToSession(lines);
+            Console.WriteLine(JsonSerializer.Serialize(session, new JsonSerializerOptions { WriteIndented = true }));
+            await Task.CompletedTask;
+        }, displayPathArg);
+
+        // session-to-display
+        var sessionPathArg = new Argument<string>("path");
+        var sessionToDisplayCmd = new Command("session-to-display", "Convert session messages to display format") { sessionPathArg };
+        sessionToDisplayCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var display = Program.SessionToDisplay(lines);
+            Console.WriteLine(string.Join("\n", display));
+            await Task.CompletedTask;
+        }, sessionPathArg);
+
+        // summarize-text
+        var sumTextArg = new Argument<string>("text");
+        var summarizeTextCmd = new Command("summarize-text", "Summarize provided text") { sumTextArg };
+        summarizeTextCmd.SetHandler(async (string text) =>
+        {
+            try
+            {
+                var summary = await KernelUtils.SummarizeAsync(text);
+                Console.WriteLine(summary);
+            }
+            catch
+            {
+                Console.WriteLine(Program.GenerateSummary(text));
+            }
+        }, sumTextArg);
+
         // task-rename
         var idArg = new Argument<string>("id");
         var descArg = new Argument<string>("description");
@@ -2648,6 +2766,17 @@ public static class AdditionalCommands
         root.Add(dirSize);
         root.Add(memoryStats);
         root.Add(memoryUnique);
+        root.Add(showConfigCmd);
+        root.Add(estimateTokensCmd);
+        root.Add(extractMetaCmd);
+        root.Add(toolDescCmd);
+        root.Add(hasActiveCmd);
+        root.Add(taskStatusesCmd);
+        root.Add(validateKeyCmd);
+        root.Add(determineProviderCmd);
+        root.Add(displayToSessionCmd);
+        root.Add(sessionToDisplayCmd);
+        root.Add(summarizeTextCmd);
         root.Add(logPathCmd);
         root.Add(searchLogCmd);
         root.Add(exportLogCmd);

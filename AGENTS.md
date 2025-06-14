@@ -211,6 +211,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `update-memory-section`.
 - Added conversation utilities `conversation-clear-after` and
   `conversation-slice`.
+- Moved configuration and text utility commands `show-config`, `estimate-tokens`,
+  `extract-metadata`, `tool-description`, `has-active-tasks`, `task-statuses`,
+  `validate-api-key`, `determine-provider`, `display-to-session`,
+  `session-to-display`, and `summarize-text` into `AdditionalCommands.cs`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

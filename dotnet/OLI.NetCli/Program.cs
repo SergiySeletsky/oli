@@ -1639,112 +1639,6 @@ class Program
             await Task.CompletedTask;
         }, threshCharOpt, threshMsgOpt);
 
-        var showConfigCmd = new Command("show-config", "Display configuration settings");
-        showConfigCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            Console.WriteLine($"Model:{state.SelectedModel} AgentMode:{state.AgentMode} AutoCompress:{state.AutoCompress} CharThresh:{state.CompressCharThreshold} MsgThresh:{state.CompressMessageThreshold} WorkingDir:{state.WorkingDirectory}");
-            await Task.CompletedTask;
-        });
-
-        var textOpt = new Option<string>("--text") { IsRequired = true };
-        var estimateTokensCmd = new Command("estimate-tokens", "Rough token estimate") { textOpt };
-        estimateTokensCmd.SetHandler(async (string text) =>
-        {
-            Console.WriteLine(EstimateTokens(text));
-            await Task.CompletedTask;
-        }, textOpt);
-
-        var metaMsgOpt = new Option<string>("--message") { IsRequired = true };
-        var extractMetaCmd = new Command("extract-metadata", "Parse file path and line count") { metaMsgOpt };
-        extractMetaCmd.SetHandler(async (string message) =>
-        {
-            var (file, lines) = ExtractToolMetadata(message);
-            Console.WriteLine(JsonSerializer.Serialize(new { file, lines }));
-            await Task.CompletedTask;
-        }, metaMsgOpt);
-
-        var toolNameOpt = new Option<string>("--name") { IsRequired = true };
-        var fileOpt = new Option<string?>("--file");
-        var linesOpt = new Option<int?>("--lines");
-        var toolDescCmd = new Command("tool-description", "Get description for a tool") { toolNameOpt, fileOpt, linesOpt };
-        toolDescCmd.SetHandler(async (string name, string? file, int? lines) =>
-        {
-            Console.WriteLine(ToolDescription(name, file, lines));
-            await Task.CompletedTask;
-        }, toolNameOpt, fileOpt, linesOpt);
-
-        var hasActiveCmd = new Command("has-active-tasks", "Any tasks in progress?");
-        hasActiveCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            Console.WriteLine(state.Tasks.Any(t => t.Status == "in-progress") ? "true" : "false");
-            await Task.CompletedTask;
-        });
-
-        var taskStatusesCmd = new Command("task-statuses", "JSON of task statuses");
-        taskStatusesCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            var statuses = state.Tasks.Select(t => new { t.Id, t.Description, t.Status, t.ToolCount, t.InputTokens, t.OutputTokens, CreatedAt = t.CreatedAt, UpdatedAt = t.UpdatedAt });
-            Console.WriteLine(JsonSerializer.Serialize(statuses, new JsonSerializerOptions { WriteIndented = true }));
-            await Task.CompletedTask;
-        });
-
-        var keyModelOpt = new Option<string>("--model") { IsRequired = true };
-        var apiKeyOpt = new Option<string>("--key") { IsRequired = true };
-        var validateKeyCmd = new Command("validate-api-key", "Check API key for model") { keyModelOpt, apiKeyOpt };
-        validateKeyCmd.SetHandler(async (string model, string key) =>
-        {
-            Console.WriteLine(ValidateApiKey(model, key) ? "valid" : "invalid");
-            await Task.CompletedTask;
-        }, keyModelOpt, apiKeyOpt);
-
-        var fileNameOpt = new Option<string>("--file") { IsRequired = true };
-        var determineProviderCmd = new Command("determine-provider", "Show provider and agent model") { keyModelOpt, apiKeyOpt, fileNameOpt };
-        determineProviderCmd.SetHandler(async (string model, string key, string file) =>
-        {
-            var (prov, agent) = DetermineProvider(model, key, file);
-            Console.WriteLine($"{prov}:{agent}");
-            await Task.CompletedTask;
-        }, keyModelOpt, apiKeyOpt, fileNameOpt);
-
-        var displayPathOpt = new Option<string>("--path") { IsRequired = true };
-        var displayToSessionCmd = new Command("display-to-session", "Convert display messages to session format") { displayPathOpt };
-        displayToSessionCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
-            var lines = File.ReadAllLines(path);
-            var session = DisplayToSession(lines);
-            Console.WriteLine(JsonSerializer.Serialize(session, new JsonSerializerOptions { WriteIndented = true }));
-            await Task.CompletedTask;
-        }, displayPathOpt);
-
-        var sessionPathOpt = new Option<string>("--path") { IsRequired = true };
-        var sessionToDisplayCmd = new Command("session-to-display", "Convert session messages to display format") { sessionPathOpt };
-        sessionToDisplayCmd.SetHandler(async (string path) =>
-        {
-            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
-            var lines = File.ReadAllLines(path);
-            var display = SessionToDisplay(lines);
-            Console.WriteLine(string.Join("\n", display));
-            await Task.CompletedTask;
-        }, sessionPathOpt);
-
-        var summarizeTextOpt = new Option<string>("--text") { IsRequired = true };
-        var summarizeTextCmd = new Command("summarize-text", "Summarize provided text") { summarizeTextOpt };
-        summarizeTextCmd.SetHandler(async (string text) =>
-        {
-            try
-            {
-                var summary = await SummarizeAsync(text);
-                Console.WriteLine(summary);
-            }
-            catch
-            {
-                Console.WriteLine(GenerateSummary(text));
-            }
-        }, summarizeTextOpt);
 
         var cmdOpt = new Option<string>("--cmd") { IsRequired = true };
         var runCommandCmd = new Command("run-command", "Execute shell command") { cmdOpt };
@@ -2823,10 +2717,7 @@ class Program
             convCharCountCmd, convWordCountCmd, summaryCountCmd, clearSummariesCmd, compressConvCmd,
             clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
             importSummariesCmd, deleteSummaryCmd,
-            setAutoCompressCmd, setThresholdsCmd, showConfigCmd,
-            estimateTokensCmd, extractMetaCmd, toolDescCmd, hasActiveCmd,
-            taskStatusesCmd, validateKeyCmd, determineProviderCmd, displayToSessionCmd,
-            sessionToDisplayCmd, summarizeTextCmd,
+            setAutoCompressCmd, setThresholdsCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
             genWriteDiffCmd, genEditDiffCmd, copyFileCmd, moveFileCmd, renameFileCmd,
