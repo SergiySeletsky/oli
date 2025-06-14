@@ -70,6 +70,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation commands `conversation-length`, `conversation-last`, `conversation-search`, and `delete-conversation-range`.
 - Added memory commands `memory-section-count`, `memory-entry-count`, and `memory-template`.
 - Added task utilities `clear-completed-tasks` and `tasks-by-status`.
+- Added conversation summary tracking with `ConversationSummary` model persisted
+  in `summaries.json`.
+- Implemented commands `conversation-char-count`, `summary-count`,
+  `compress-conversation`, `clear-history`, `show-summaries`, `export-summaries`,
+  `import-summaries`, and `delete-summary`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -82,3 +87,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Improve search commands to respect ignore files and binary detection.
 - Begin porting LSP-based code intelligence features.
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
+- Add automatic conversation compression based on size thresholds.

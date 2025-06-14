@@ -24,6 +24,7 @@ public class AppState
     public bool AgentMode { get; set; }
     public int SelectedModel { get; set; }
     public List<string> Conversation { get; set; } = new();
+    public List<ConversationSummary> ConversationSummaries { get; set; } = new();
     public List<TaskRecord> Tasks { get; set; } = new();
     public HashSet<string> Subscriptions { get; set; } = new();
 }
@@ -33,6 +34,7 @@ class Program
     static readonly string StatePath = Path.Combine(AppContext.BaseDirectory, "state.json");
     static readonly string TasksPath = Path.Combine(AppContext.BaseDirectory, "tasks.json");
     static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
+    static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
     static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
 
     static List<TaskRecord> LoadTasks()
@@ -41,6 +43,16 @@ class Program
         {
             var json = File.ReadAllText(TasksPath);
             return JsonSerializer.Deserialize<List<TaskRecord>>(json) ?? new();
+        }
+        return new();
+    }
+
+    static List<ConversationSummary> LoadSummaries()
+    {
+        if (File.Exists(SummariesPath))
+        {
+            var json = File.ReadAllText(SummariesPath);
+            return JsonSerializer.Deserialize<List<ConversationSummary>>(json) ?? new();
         }
         return new();
     }
@@ -60,6 +72,11 @@ class Program
         File.WriteAllLines(ConversationPath, conv);
     }
 
+    static void SaveSummaries(List<ConversationSummary> summaries)
+    {
+        File.WriteAllText(SummariesPath, JsonSerializer.Serialize(summaries, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
     static AppState LoadState()
     {
         var state = File.Exists(StatePath)
@@ -68,6 +85,7 @@ class Program
 
         state.Tasks = LoadTasks();
         state.Conversation = LoadConversation();
+        state.ConversationSummaries = LoadSummaries();
         return state;
     }
 
@@ -76,6 +94,7 @@ class Program
         File.WriteAllText(StatePath, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
         SaveTasks(state.Tasks);
         SaveConversation(state.Conversation);
+        SaveSummaries(state.ConversationSummaries);
     }
 
     static int Main(string[] args)
@@ -808,6 +827,134 @@ class Program
             await Task.CompletedTask;
         });
 
+        var convCharCountCmd = new Command("conversation-char-count", "Show total character count of conversation");
+        convCharCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var chars = state.Conversation.Sum(m => m.Length);
+            Console.WriteLine(chars);
+            await Task.CompletedTask;
+        });
+
+        var summaryCountCmd = new Command("summary-count", "Show number of conversation summaries");
+        summaryCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.ConversationSummaries.Count);
+            await Task.CompletedTask;
+        });
+
+        var compressConvCmd = new Command("compress-conversation", "Summarize and clear conversation");
+        compressConvCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            if (state.Conversation.Count == 0)
+            {
+                Console.WriteLine("No conversation to compress");
+                return;
+            }
+            var text = string.Join(" ", state.Conversation);
+            var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var summary = string.Join(" ", words.Take(20));
+            state.ConversationSummaries.Add(new ConversationSummary
+            {
+                Content = summary,
+                CreatedAt = DateTime.UtcNow,
+                MessagesCount = state.Conversation.Count,
+                OriginalChars = text.Length
+            });
+            state.Conversation.Clear();
+            SaveState(state);
+            Console.WriteLine(summary);
+            await Task.CompletedTask;
+        });
+
+        var clearHistoryCmd = new Command("clear-history", "Remove conversation and summaries");
+        clearHistoryCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            state.Conversation.Clear();
+            state.ConversationSummaries.Clear();
+            SaveState(state);
+            Console.WriteLine("History cleared");
+            await Task.CompletedTask;
+        });
+
+        var showSummariesCmd = new Command("show-summaries", "Display conversation summaries");
+        showSummariesCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            if (state.ConversationSummaries.Count == 0)
+            {
+                Console.WriteLine("No summaries");
+            }
+            for (int i = 0; i < state.ConversationSummaries.Count; i++)
+            {
+                var s = state.ConversationSummaries[i];
+                Console.WriteLine($"[{i}] {s.Content} ({s.MessagesCount} msgs, {s.OriginalChars} chars)");
+            }
+            await Task.CompletedTask;
+        });
+
+        var exportSummariesPathOpt = new Option<string>("--path") { IsRequired = true };
+        var exportSummariesCmd = new Command("export-summaries", "Export summaries to file")
+        {
+            exportSummariesPathOpt
+        };
+        exportSummariesCmd.SetHandler(async (string path) =>
+        {
+            var state = LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state.ConversationSummaries, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"Summaries exported to {path}");
+            await Task.CompletedTask;
+        }, exportSummariesPathOpt);
+
+        var importSummariesPathOpt = new Option<string>("--path") { IsRequired = true };
+        var importSummariesCmd = new Command("import-summaries", "Load summaries from file")
+        {
+            importSummariesPathOpt
+        };
+        importSummariesCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var json = File.ReadAllText(path);
+            var summaries = JsonSerializer.Deserialize<List<ConversationSummary>>(json);
+            if (summaries != null)
+            {
+                var state = LoadState();
+                state.ConversationSummaries = summaries;
+                SaveState(state);
+                Console.WriteLine("Summaries imported");
+            }
+            else
+            {
+                Console.WriteLine("Invalid summaries file");
+            }
+            await Task.CompletedTask;
+        }, importSummariesPathOpt);
+
+        var deleteSummaryIndexOpt = new Option<int>("--index") { IsRequired = true };
+        var deleteSummaryCmd = new Command("delete-summary", "Remove a summary by index") { deleteSummaryIndexOpt };
+        deleteSummaryCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.ConversationSummaries.Count)
+            {
+                state.ConversationSummaries.RemoveAt(index);
+                SaveState(state);
+                Console.WriteLine("Summary deleted");
+            }
+            else
+            {
+                Console.WriteLine("Invalid index");
+            }
+            await Task.CompletedTask;
+        }, deleteSummaryIndexOpt);
+
         var readPathOption = new Option<string>("--path") { IsRequired = true };
         var readFileCmd = new Command("read-file", "Read file contents") { readPathOption };
         readFileCmd.SetHandler(async (string path) =>
@@ -1369,6 +1516,9 @@ class Program
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
             sectionCountCmd, entryCountCmd, memoryTemplateCmd,
             summarizeCmd, convStatsCmd,
+            convCharCountCmd, summaryCountCmd, compressConvCmd,
+            clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
+            importSummariesCmd, deleteSummaryCmd,
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
             genWriteDiffCmd, genEditDiffCmd, copyFileCmd, moveFileCmd, renameFileCmd,
