@@ -12,17 +12,17 @@ using System.Text.Json.Serialization;
 using static FileUtils;
 using static JsonUtils;
 using static MemoryUtils;
+using static LogUtils;
 
 class Program
 {
-    static readonly string StatePath = Path.Combine(AppContext.BaseDirectory, "state.json");
-    static readonly string TasksPath = Path.Combine(AppContext.BaseDirectory, "tasks.json");
-    static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
-    static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
-    static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
+    public static readonly string StatePath = Path.Combine(AppContext.BaseDirectory, "state.json");
+    public static readonly string TasksPath = Path.Combine(AppContext.BaseDirectory, "tasks.json");
+    public static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
+    public static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
+    public static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
     public static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
     static readonly string LspPath = Path.Combine(AppContext.BaseDirectory, "lsp.json");
-    static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "oli.log");
 
     static List<TaskRecord> LoadTasks()
     {
@@ -79,22 +79,6 @@ class Program
         File.WriteAllText(LspPath, JsonSerializer.Serialize(servers, new JsonSerializerOptions { WriteIndented = true }));
     }
 
-    public static void Log(string message)
-    {
-        File.AppendAllText(LogPath, $"{DateTime.UtcNow:o} {message}\n");
-    }
-
-    public static string ReadLog(int lines)
-    {
-        if (!File.Exists(LogPath)) return string.Empty;
-        var all = File.ReadAllLines(LogPath);
-        return string.Join('\n', all.TakeLast(lines));
-    }
-
-    public static void ClearLog()
-    {
-        if (File.Exists(LogPath)) File.WriteAllText(LogPath, string.Empty);
-    }
 
     static List<string> LoadConversation()
     {

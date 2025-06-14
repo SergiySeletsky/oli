@@ -6,6 +6,8 @@ using System.Net.Http;
 using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
+using static LogUtils;
+using static BackupUtils;
 
 public static class AdditionalCommands
 {
@@ -200,7 +202,7 @@ public static class AdditionalCommands
         var showLog = new Command("show-log", "Display log file") { linesOpt };
         showLog.SetHandler(async (int lines) =>
         {
-            Console.WriteLine(Program.ReadLog(lines));
+            Console.WriteLine(LogUtils.ReadLog(lines));
             await Task.CompletedTask;
         }, linesOpt);
 
@@ -208,7 +210,7 @@ public static class AdditionalCommands
         var clearLog = new Command("clear-log", "Clear log file");
         clearLog.SetHandler(async () =>
         {
-            Program.ClearLog();
+            LogUtils.ClearLog();
             Console.WriteLine("log cleared");
             await Task.CompletedTask;
         });
@@ -308,12 +310,117 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // log-path
+        var logPathCmd = new Command("log-path", "Show path to log file");
+        logPathCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(LogUtils.LogPath);
+            await Task.CompletedTask;
+        });
+
+        // search-log
+        var logQueryArg = new Argument<string>("query");
+        var searchLogCmd = new Command("search-log", "Search log file for text") { logQueryArg };
+        searchLogCmd.SetHandler(async (string query) =>
+        {
+            foreach (var line in LogUtils.SearchLog(query)) Console.WriteLine(line);
+            await Task.CompletedTask;
+        }, logQueryArg);
+
+        // export-log
+        var outLogArg = new Argument<string>("path");
+        var exportLogCmd = new Command("export-log", "Export log file to path") { outLogArg };
+        exportLogCmd.SetHandler(async (string path) =>
+        {
+            LogUtils.ExportLog(path);
+            Console.WriteLine($"exported to {path}");
+            await Task.CompletedTask;
+        }, outLogArg);
+
+        // backup-state
+        var backupStateCmd = new Command("backup-state", "Backup state file");
+        backupStateCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.StatePath, "state.json");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-state
+        var restoreStateArg = new Argument<string>("path");
+        var restoreStateCmd = new Command("restore-state", "Restore state from backup") { restoreStateArg };
+        restoreStateCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.StatePath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreStateArg);
+
+        // backup-memory
+        var backupMemoryCmd = new Command("backup-memory", "Backup memory file");
+        backupMemoryCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.MemoryPath, "memory.md");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-memory
+        var restoreMemoryArg = new Argument<string>("path");
+        var restoreMemoryCmd = new Command("restore-memory", "Restore memory from backup") { restoreMemoryArg };
+        restoreMemoryCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.MemoryPath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreMemoryArg);
+
+        // backup-conversation
+        var backupConvCmd = new Command("backup-conversation", "Backup conversation file");
+        backupConvCmd.SetHandler(async () =>
+        {
+            var dest = BackupUtils.BackupFile(Program.ConversationPath, "conversation.json");
+            Console.WriteLine(dest);
+            await Task.CompletedTask;
+        });
+
+        // restore-conversation
+        var restoreConvArg = new Argument<string>("path");
+        var restoreConvCmd = new Command("restore-conversation", "Restore conversation from backup") { restoreConvArg };
+        restoreConvCmd.SetHandler(async (string path) =>
+        {
+            BackupUtils.RestoreFile(path, Program.ConversationPath);
+            Console.WriteLine("restored");
+            await Task.CompletedTask;
+        }, restoreConvArg);
+
+        // list-backups
+        var listBackupsCmd = new Command("list-backups", "List backup files");
+        listBackupsCmd.SetHandler(async () =>
+        {
+            if (Directory.Exists(BackupUtils.BackupDir))
+            {
+                foreach (var file in Directory.GetFiles(BackupUtils.BackupDir)) Console.WriteLine(file);
+            }
+            await Task.CompletedTask;
+        });
+
         root.Add(listCmd);
         root.Add(fileWritable);
         root.Add(dirWritable);
         root.Add(dirSize);
         root.Add(memoryStats);
         root.Add(memoryUnique);
+        root.Add(logPathCmd);
+        root.Add(searchLogCmd);
+        root.Add(exportLogCmd);
+        root.Add(backupStateCmd);
+        root.Add(restoreStateCmd);
+        root.Add(backupMemoryCmd);
+        root.Add(restoreMemoryCmd);
+        root.Add(backupConvCmd);
+        root.Add(restoreConvCmd);
+        root.Add(listBackupsCmd);
         root.Add(taskRename);
         root.Add(setPriority);
         root.Add(reopenTask);

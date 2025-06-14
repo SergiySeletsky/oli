@@ -127,6 +127,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation command `dedupe-conversation`.
 - Added memory section commands `export-memory-section`, `import-memory-section`, `open-memory`, and `list-memory-keys`.
 - Persisted log level in `AppState`.
+- Added log management commands `log-path`, `search-log`, and `export-log`.
+- Added backup utilities `backup-state`, `restore-state`, `backup-memory`, `restore-memory`, `backup-conversation`, `restore-conversation`, and `list-backups`.
+- Extracted logging helpers into `LogUtils` and introduced `BackupUtils` for file backups.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
