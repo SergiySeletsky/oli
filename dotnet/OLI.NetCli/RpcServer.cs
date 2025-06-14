@@ -6,17 +6,19 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
+public record struct EventRecord(string Type, object Payload);
+
 public static class RpcServer
 {
     static HttpListener? _listener;
-    static readonly List<object> _events = new();
+    static readonly List<EventRecord> _events = new();
     static CancellationTokenSource? _cts;
 
-    public static List<object> DrainEvents()
+    public static List<EventRecord> DrainEvents()
     {
         lock (_events)
         {
-            var copy = new List<object>(_events);
+            var copy = new List<EventRecord>(_events);
             _events.Clear();
             return copy;
         }
@@ -49,10 +51,10 @@ public static class RpcServer
         }
     }
 
-    public static void Notify(object payload)
+    public static void Notify(object payload, string type = "general")
     {
         lock (_events)
-            _events.Add(payload);
+            _events.Add(new EventRecord(type, payload));
     }
 
     static async Task ListenLoop(CancellationToken token)
@@ -79,7 +81,9 @@ public static class RpcServer
         var res = ctx.Response;
         if (req.HttpMethod == "GET" && req.Url!.AbsolutePath == "/events")
         {
+            var type = req.QueryString["type"] ?? string.Empty;
             var events = DrainEvents();
+            if (!string.IsNullOrEmpty(type)) events = events.FindAll(e => e.Type == type);
             var json = JsonSerializer.Serialize(events);
             var data = Encoding.UTF8.GetBytes(json);
             res.ContentType = "application/json";
@@ -88,6 +92,7 @@ public static class RpcServer
         }
         else if (req.HttpMethod == "GET" && req.Url!.AbsolutePath == "/stream")
         {
+            var type = req.QueryString["type"] ?? "";
             res.ContentType = "text/event-stream";
             res.Headers.Add("Cache-Control", "no-cache");
             res.SendChunked = true;
@@ -96,6 +101,7 @@ public static class RpcServer
             {
                 foreach (var ev in DrainEvents())
                 {
+                    if (type != string.Empty && ev.Type != type) continue;
                     var json = JsonSerializer.Serialize(ev);
                     var line = Encoding.UTF8.GetBytes($"data: {json}\n\n");
                     await output.WriteAsync(line, 0, line.Length);

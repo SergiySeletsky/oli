@@ -57,4 +57,46 @@ public static class FileUtils
             entry.ExtractToFile(destFile, true);
         }
     }
+
+    public static bool IsBinaryFile(string path)
+    {
+        using var stream = File.OpenRead(path);
+        var buffer = new byte[8000];
+        int read = stream.Read(buffer, 0, buffer.Length);
+        for (int i = 0; i < read; i++) if (buffer[i] == 0) return true;
+        return false;
+    }
+
+    public static string[] LoadIgnorePatterns(string root)
+    {
+        var list = new List<string>();
+        var git = Path.Combine(root, ".gitignore");
+        if (File.Exists(git))
+        {
+            foreach (var line in File.ReadAllLines(git))
+            {
+                var l = line.Trim();
+                if (l.Length == 0 || l.StartsWith("#")) continue;
+                list.Add(l);
+            }
+        }
+        return list.ToArray();
+    }
+
+    public static bool IsIgnored(string file, string[] patterns)
+    {
+        foreach (var pat in patterns)
+        {
+            if (pat.EndsWith("/"))
+            {
+                if (file.Contains(Path.DirectorySeparatorChar + pat.TrimEnd('/') + Path.DirectorySeparatorChar))
+                    return true;
+            }
+            else if (file.EndsWith(pat) || Path.GetFileName(file).Contains(pat.Trim('*')))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 }

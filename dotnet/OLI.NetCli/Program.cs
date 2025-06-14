@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DiffPlex.DiffBuilder;
+using DiffPlex.DiffBuilder.Model;
 
 // Local utilities
 using static FileUtils;
@@ -139,7 +141,11 @@ class Program
             Console.WriteLine($"[Model {modelIndex}] Prompt: {prompt}");
             try
             {
-                var reply = await CompleteAsync(prompt);
+                var history = string.Join("\n", state.Conversation);
+                var fullPrompt = string.IsNullOrWhiteSpace(history)
+                    ? prompt
+                    : $"{history}\nUser: {prompt}\nAssistant:";
+                var reply = await CompleteAsync(fullPrompt);
                 state.Conversation.Add($"Assistant: {reply}");
                 SaveState(state);
                 Console.WriteLine(reply);
@@ -853,6 +859,46 @@ class Program
             await Task.CompletedTask;
         }, eventOption);
 
+        var subscriptionsCmd = new Command("subscriptions", "List active subscriptions");
+        subscriptionsCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            foreach (var s in state.Subscriptions) Console.WriteLine(s);
+            await Task.CompletedTask;
+        });
+
+        var subscriptionCountCmd = new Command("subscription-count", "Show subscription total");
+        subscriptionCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.Subscriptions.Count);
+            await Task.CompletedTask;
+        });
+
+        var rpcStartCmd = new Command("rpc-start", "Start RPC server");
+        rpcStartCmd.SetHandler(async () => { RpcServer.Start(); Console.WriteLine("started"); await Task.CompletedTask; });
+
+        var rpcStopCmd = new Command("rpc-stop", "Stop RPC server");
+        rpcStopCmd.SetHandler(async () => { RpcServer.Stop(); Console.WriteLine("stopped"); await Task.CompletedTask; });
+
+        var rpcStatusCmd = new Command("rpc-status", "Is RPC server running?");
+        rpcStatusCmd.SetHandler(async () => { Console.WriteLine(RpcServer.IsRunning ? "running" : "stopped"); await Task.CompletedTask; });
+
+        var rpcNotifyJsonOpt = new Option<string>("--json") { IsRequired = true };
+        var rpcNotifyTypeOpt = new Option<string>("--type", () => "manual");
+        var rpcNotifyCmd = new Command("rpc-notify", "Send JSON event") { rpcNotifyJsonOpt, rpcNotifyTypeOpt };
+        rpcNotifyCmd.SetHandler(async (string json, string type) =>
+        {
+            try
+            {
+                var obj = JsonSerializer.Deserialize<object>(json);
+                if (obj != null) RpcServer.Notify(obj, type);
+                Console.WriteLine("sent");
+            }
+            catch { Console.WriteLine("invalid json"); }
+            await Task.CompletedTask;
+        }, rpcNotifyJsonOpt, rpcNotifyTypeOpt);
+
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -864,6 +910,7 @@ class Program
             versionCmd,
             subscribeCmd,
             unsubscribeCmd,
+            subscriptionsCmd,
             subscriptionCountCmd,
             deleteSummaryRangeCmd,
             runCommandCmd,
@@ -893,21 +940,14 @@ class Program
 
     public static string GenerateDiff(string oldContent, string newContent)
     {
-        var oldLines = oldContent.Split('\n');
-        var newLines = newContent.Split('\n');
-        var max = Math.Max(oldLines.Length, newLines.Length);
-        var diff = new List<string>();
-        for (int i = 0; i < max; i++)
+        var diff = InlineDiffBuilder.Diff(oldContent, newContent);
+        var sb = new System.Text.StringBuilder();
+        foreach (var line in diff.Lines)
         {
-            var oldLine = i < oldLines.Length ? oldLines[i] : string.Empty;
-            var newLine = i < newLines.Length ? newLines[i] : string.Empty;
-            if (oldLine != newLine)
-            {
-                if (!string.IsNullOrEmpty(oldLine)) diff.Add($"- {oldLine}");
-                if (!string.IsNullOrEmpty(newLine)) diff.Add($"+ {newLine}");
-            }
+            if (line.Type == ChangeType.Inserted) sb.AppendLine($"+ {line.Text}");
+            else if (line.Type == ChangeType.Deleted) sb.AppendLine($"- {line.Text}");
         }
-        return string.Join('\n', diff);
+        return sb.ToString();
     }
 
     static async void AutoCompress(AppState state)
@@ -1027,5 +1067,3 @@ class Program
     }
 
 }
-
-

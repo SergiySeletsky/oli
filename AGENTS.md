@@ -234,15 +234,20 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Created `StateCommands.cs` for state inspection and working directory commands.
 - Relocated path helper commands `tasks-path`, `conversation-path`, `summaries-path`, and `tools-path` into `PathCommands.cs`.
 
+### Latest Progress
+- Added conversation context to the `run` command so prior messages are included when calling the LLM.
+- Replaced the naive diff generation with the `DiffPlex` library for robust diffs.
+- Improved `grep-search-adv` and `glob-search-adv` to respect `.gitignore` patterns and skip binary files.
+- Extended the RPC server with event type filtering for `/events` and `/stream` endpoints.
+- Added commands `subscriptions` and `subscription-count` to inspect active subscriptions.
+- Introduced `rpc-start`, `rpc-stop`, `rpc-status`, and `rpc-notify` commands for RPC control.
+- Added state management commands `export-state`, `import-state`, and `reset-state`.
+
 ### TODO for Next Run
-- Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
 - Persist conversation history and implement tool integrations similar to the Rust backend.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
-- Expand RPC server capabilities to support real-time event streaming and subscription handling.
-- Replace basic diff implementation with a robust algorithm and hook up LLM
-  summarization for conversation utilities.
-- Improve search commands to respect ignore files and binary detection.
+- Expand RPC server capabilities with richer event payloads and persistent subscriptions.
 - Continue porting LSP-based code intelligence features.
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
 - Hook up automatic conversation compression to LLM summarization.

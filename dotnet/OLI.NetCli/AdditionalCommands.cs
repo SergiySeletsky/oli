@@ -1969,12 +1969,11 @@ public static class AdditionalCommands
         {
             if (!Directory.Exists(dir)) { Console.WriteLine("Directory not found"); return; }
             var regex = new System.Text.RegularExpressions.Regex(pattern);
-            var ignoreDirs = new[] { ".git", "node_modules", "target", "bin", "obj", "dist" };
-            var binaryExt = new[] { ".exe", ".dll", ".so", ".a", ".lib", ".pyc", ".pyo", ".class" };
+            var ignores = FileUtils.LoadIgnorePatterns(dir);
             foreach (var file in Directory.GetFiles(dir, "*", SearchOption.AllDirectories))
             {
-                if (ignoreDirs.Any(id => file.Contains(id))) continue;
-                if (binaryExt.Contains(Path.GetExtension(file))) continue;
+                if (FileUtils.IsIgnored(file, ignores)) continue;
+                if (FileUtils.IsBinaryFile(file)) continue;
                 int idx = 0;
                 foreach (var line in File.ReadLines(file))
                 {
@@ -1991,10 +1990,10 @@ public static class AdditionalCommands
         globAdvCmd.SetHandler(async (string pattern, string dir) =>
         {
             if (!Directory.Exists(dir)) { Console.WriteLine("Directory not found"); return; }
-            var ignoreDirs = new[] { ".git", "node_modules", "target", "bin", "obj", "dist" };
+            var ignores = FileUtils.LoadIgnorePatterns(dir);
             foreach (var file in Directory.GetFiles(dir, pattern, SearchOption.AllDirectories))
             {
-                if (ignoreDirs.Any(id => file.Contains(id))) continue;
+                if (FileUtils.IsIgnored(file, ignores)) continue;
                 Console.WriteLine(file);
             }
             await Task.CompletedTask;
@@ -2320,7 +2319,7 @@ public static class AdditionalCommands
         {
             if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
             var json = await File.ReadAllTextAsync(path);
-            RpcServer.Notify(JsonSerializer.Deserialize<object>(json) ?? new());
+            RpcServer.Notify(JsonSerializer.Deserialize<object>(json) ?? new(), "file");
             await Task.CompletedTask;
         }, notifyFileArg);
 
