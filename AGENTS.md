@@ -138,6 +138,12 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.
+- Added JSON utilities `json-merge` and `json-validate`.
+- Added memory diff viewer `memory-diff`.
+- Added regex log searching via `search-log-regex`.
+- Added `grep-count` and `tail-file-follow` file utilities.
+- Added task age viewer `task-age` and conversation exporter `export-conversation-text`.
+- Added `open-tools` helper and `list-tool-names` command.
 - Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.

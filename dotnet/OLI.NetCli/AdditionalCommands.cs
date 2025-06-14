@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Diagnostics;
 using System.Text;
 using System.Collections.Generic;
+using System.Text.Json;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using static LogUtils;
@@ -691,6 +692,158 @@ public static class AdditionalCommands
         root.Add(tasksByCreatedCmd);
         root.Add(resetTasksCmd);
         root.Add(exportTasksCsvCmd);
+        // json-merge
+        var jsonAArg = new Argument<string>("first");
+        var jsonBArg = new Argument<string>("second");
+        var jsonOutArg = new Argument<string>("output");
+        var jsonMergeCmd = new Command("json-merge", "Merge two JSON files") { jsonAArg, jsonBArg, jsonOutArg };
+        jsonMergeCmd.SetHandler(async (string first, string second, string output) =>
+        {
+            if (!File.Exists(first) || !File.Exists(second))
+            {
+                Console.WriteLine("file not found");
+                return;
+            }
+            try
+            {
+                var jsonA = JsonDocument.Parse(File.ReadAllText(first)).RootElement.Clone();
+                var jsonB = JsonDocument.Parse(File.ReadAllText(second)).RootElement.Clone();
+                using var stream = new MemoryStream();
+                using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
+                {
+                    writer.WriteStartObject();
+                    foreach (var prop in jsonA.EnumerateObject()) prop.WriteTo(writer);
+                    foreach (var prop in jsonB.EnumerateObject()) prop.WriteTo(writer);
+                    writer.WriteEndObject();
+                }
+                File.WriteAllBytes(output, stream.ToArray());
+                Console.WriteLine($"merged to {output}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"error: {ex.Message}");
+            }
+            await Task.CompletedTask;
+        }, jsonAArg, jsonBArg, jsonOutArg);
+
+        // json-validate
+        var jsonValidateArg = new Argument<string>("path");
+        var jsonValidateCmd = new Command("json-validate", "Validate JSON file") { jsonValidateArg };
+        jsonValidateCmd.SetHandler(async (string path) =>
+        {
+            try
+            {
+                JsonDocument.Parse(File.ReadAllText(path));
+                Console.WriteLine("valid");
+            }
+            catch
+            {
+                Console.WriteLine("invalid");
+            }
+            await Task.CompletedTask;
+        }, jsonValidateArg);
+
+        // memory-diff
+        var memDiffArg = new Argument<string>("path");
+        var memDiffCmd = new Command("memory-diff", "Diff memory file with another") { memDiffArg };
+        memDiffCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(Program.MemoryPath) || !File.Exists(path))
+            {
+                Console.WriteLine("file not found");
+                return;
+            }
+            var diff = Program.GenerateDiff(File.ReadAllText(Program.MemoryPath), File.ReadAllText(path));
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, memDiffArg);
+
+        // search-log-regex
+        var logRegexArg = new Argument<string>("pattern");
+        var searchLogRegexCmd = new Command("search-log-regex", "Regex search in log") { logRegexArg };
+        searchLogRegexCmd.SetHandler(async (string pattern) =>
+        {
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            foreach (var line in LogUtils.SearchLog(string.Empty))
+                if (regex.IsMatch(line)) Console.WriteLine(line);
+            await Task.CompletedTask;
+        }, logRegexArg);
+
+        // grep-count
+        var grepPathArg = new Argument<string>("path");
+        var grepTextArg = new Argument<string>("text");
+        var grepCountCmd = new Command("grep-count", "Count occurrences of text in file") { grepPathArg, grepTextArg };
+        grepCountCmd.SetHandler(async (string path, string text) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("not found"); return; }
+            var count = File.ReadLines(path).Count(l => l.Contains(text, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        }, grepPathArg, grepTextArg);
+
+        // tail-file-follow
+        var followPathArg = new Argument<string>("path");
+        var followLinesOpt = new Option<int>("--lines", () => 10);
+        var tailFollowCmd = new Command("tail-file-follow", "Tail file and follow") { followPathArg, followLinesOpt };
+        tailFollowCmd.SetHandler(async (string path, int lines) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("not found"); return; }
+            var all = File.ReadLines(path).ToList();
+            foreach (var line in all.TakeLast(lines)) Console.WriteLine(line);
+            var pos = new FileInfo(path).Length;
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            fs.Seek(pos, SeekOrigin.Begin);
+            using var reader = new StreamReader(fs);
+            while (true)
+            {
+                var newLine = await reader.ReadLineAsync();
+                if (newLine != null) Console.WriteLine(newLine);
+                else await Task.Delay(500);
+            }
+        }, followPathArg, followLinesOpt);
+
+        // task-age
+        var taskAgeArg = new Argument<string>("id");
+        var taskAgeCmd = new Command("task-age", "Show age of task in hours") { taskAgeArg };
+        taskAgeCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task == null) { Console.WriteLine("not found"); return; }
+            var age = DateTime.UtcNow - task.CreatedAt;
+            Console.WriteLine(age.TotalHours.ToString("F1"));
+            await Task.CompletedTask;
+        }, taskAgeArg);
+
+        // conversation-export-text
+        var convExportTxtArg = new Argument<string>("path");
+        var convExportTxtCmd = new Command("export-conversation-text", "Export conversation to text file") { convExportTxtArg };
+        convExportTxtCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            await File.WriteAllLinesAsync(path, state.Conversation);
+            Console.WriteLine($"exported to {path}");
+        }, convExportTxtArg);
+
+        // open-tools
+        var openToolsCmd = new Command("open-tools", "Open tools.json file");
+        openToolsCmd.SetHandler(async () =>
+        {
+            var psi = new ProcessStartInfo(Program.ToolsPath) { UseShellExecute = true };
+            Process.Start(psi);
+            await Task.CompletedTask;
+        });
+
+        // list-tool-names
+        var listToolNamesCmd = new Command("list-tool-names", "List unique tool names");
+        listToolNamesCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var name in state.ToolExecutions.Select(t => t.Name).Distinct())
+                Console.WriteLine(name);
+            await Task.CompletedTask;
+        });
+
         root.Add(importTasksCsvCmd);
 
     static string EscapeCsv(string s)
@@ -744,6 +897,16 @@ public static class AdditionalCommands
             Console.WriteLine("Replaced");
             await Task.CompletedTask;
         }, replaceIdxOpt, replaceTextOpt);
+        root.Add(jsonMergeCmd);
+        root.Add(jsonValidateCmd);
+        root.Add(memDiffCmd);
+        root.Add(searchLogRegexCmd);
+        root.Add(grepCountCmd);
+        root.Add(tailFollowCmd);
+        root.Add(taskAgeCmd);
+        root.Add(convExportTxtCmd);
+        root.Add(openToolsCmd);
+        root.Add(listToolNamesCmd);
 
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };
