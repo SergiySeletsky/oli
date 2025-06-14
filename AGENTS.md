@@ -215,6 +215,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `extract-metadata`, `tool-description`, `has-active-tasks`, `task-statuses`,
   `validate-api-key`, `determine-provider`, `display-to-session`,
   `session-to-display`, and `summarize-text` into `AdditionalCommands.cs`.
+- Moved file operation commands into `FileCommands.cs` for better organization.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
