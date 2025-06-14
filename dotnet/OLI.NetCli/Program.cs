@@ -2746,100 +2746,6 @@ class Program
             await Task.CompletedTask;
         }, eventOption);
 
-        var lspLangOpt = new Option<string>("--lang", "Language (python/rust)") { IsRequired = true };
-        var lspRootOpt = new Option<string>("--root", () => Directory.GetCurrentDirectory(), "Workspace root");
-        var lspIdOpt = new Option<string>("--id", "LSP server id") { IsRequired = true };
-        var lspFileOpt = new Option<string>("--file", "File path") { IsRequired = true };
-        var lspNameOpt = new Option<string>("--name", "Symbol name") { IsRequired = true };
-
-        var lspStartCmd = new Command("lsp-start", "Start LSP server") { lspLangOpt, lspRootOpt };
-        lspStartCmd.SetHandler(async (string lang, string root) =>
-        {
-            var state = LoadState();
-            var info = new LspServerInfo { Language = lang, RootPath = Path.GetFullPath(root) };
-            state.LspServers.Add(info);
-            SaveState(state);
-            Console.WriteLine($"Started {lang} server {info.Id} at {info.RootPath}");
-            await Task.CompletedTask;
-        }, lspLangOpt, lspRootOpt);
-
-        var lspStopCmd = new Command("lsp-stop", "Stop LSP server") { lspIdOpt };
-        lspStopCmd.SetHandler(async (string id) =>
-        {
-            var state = LoadState();
-            var removed = state.LspServers.RemoveAll(s => s.Id == id) > 0;
-            SaveState(state);
-            Console.WriteLine(removed ? $"Stopped {id}" : $"Server {id} not found");
-            await Task.CompletedTask;
-        }, lspIdOpt);
-
-        var lspStopAllCmd = new Command("lsp-stop-all", "Stop all LSP servers");
-        lspStopAllCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            state.LspServers.Clear();
-            SaveState(state);
-            Console.WriteLine("Stopped all servers");
-            await Task.CompletedTask;
-        });
-
-        var lspListCmd = new Command("lsp-list", "List LSP servers");
-        lspListCmd.SetHandler(async () =>
-        {
-            var state = LoadState();
-            if (state.LspServers.Count == 0) Console.WriteLine("No servers");
-            foreach (var s in state.LspServers)
-                Console.WriteLine($"{s.Id}: {s.Language} {s.RootPath}");
-            await Task.CompletedTask;
-        });
-
-        var lspInfoCmd = new Command("lsp-info", "Show server info") { lspIdOpt };
-        lspInfoCmd.SetHandler(async (string id) =>
-        {
-            var state = LoadState();
-            var s = state.LspServers.FirstOrDefault(x => x.Id == id);
-            if (s == null) Console.WriteLine("Not found");
-            else Console.WriteLine($"{s.Id}: {s.Language} started {s.StartedAt:u} root {s.RootPath}");
-            await Task.CompletedTask;
-        }, lspIdOpt);
-
-        var lspSymbolsCmd = new Command("lsp-symbols", "List symbols") { lspFileOpt };
-        lspSymbolsCmd.SetHandler(async (string file) =>
-        {
-            foreach (var sym in ExtractDocumentSymbols(file))
-                Console.WriteLine($"{sym.Line}:{sym.Name}");
-            await Task.CompletedTask;
-        }, lspFileOpt);
-
-        var lspCodeLensCmd = new Command("lsp-codelens", "Show codelens") { lspFileOpt };
-        lspCodeLensCmd.SetHandler(async (string file) =>
-        {
-            foreach (var sym in ExtractCodeLens(file))
-                Console.WriteLine($"{sym.Line}:{sym.Name}");
-            await Task.CompletedTask;
-        }, lspFileOpt);
-
-        var lspTokensCmd = new Command("lsp-semantic-tokens", "Count tokens") { lspFileOpt };
-        lspTokensCmd.SetHandler(async (string file) =>
-        {
-            Console.WriteLine(CountSemanticTokens(file));
-            await Task.CompletedTask;
-        }, lspFileOpt);
-
-        var lspDefCmd = new Command("lsp-definition", "Find definition") { lspFileOpt, lspNameOpt };
-        lspDefCmd.SetHandler(async (string file, string name) =>
-        {
-            var line = FindDefinitionLine(file, name);
-            Console.WriteLine(line >= 0 ? $"{file}:{line}" : "not found");
-            await Task.CompletedTask;
-        }, lspFileOpt, lspNameOpt);
-
-        var lspRootCmd = new Command("lsp-workspace-root", "Find workspace root") { lspFileOpt };
-        lspRootCmd.SetHandler(async (string file) =>
-        {
-            Console.WriteLine(FindWorkspaceRoot(file));
-            await Task.CompletedTask;
-        }, lspFileOpt);
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -2874,14 +2780,13 @@ class Program
             latestSummaryCmd, summaryInfoCmd, deleteSummaryRangeCmd,
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,
-            lspStartCmd, lspStopCmd, lspStopAllCmd, lspListCmd, lspInfoCmd,
             readBinaryCmd, writeBinaryCmd, fileHashCmd, fileWordCountCmd,
             readJsonCmd, writeJsonCmd, formatJsonCmd, jsonDiffCmd,
             runCommandCmd, rpcStartCmd, rpcStopCmd, rpcStatusCmd, rpcNotifyCmd,
-            purgeFailedCmd, tasksOverviewCmd,
-            lspSymbolsCmd, lspCodeLensCmd, lspTokensCmd, lspDefCmd, lspRootCmd
+            purgeFailedCmd, tasksOverviewCmd
         };
 
+        LspCommands.Register(root);
         AdditionalCommands.Register(root);
 
         return root.Invoke(args);
@@ -3015,55 +2920,4 @@ class Program
         return string.Join(" ", words.Take(20));
     }
 
-    static string FindWorkspaceRoot(string filePath)
-    {
-        var dir = Path.GetDirectoryName(Path.GetFullPath(filePath)) ?? ".";
-        var current = new DirectoryInfo(dir);
-        while (current != null)
-        {
-            if (File.Exists(Path.Combine(current.FullName, "Cargo.toml")) ||
-                File.Exists(Path.Combine(current.FullName, "pyproject.toml")) ||
-                Directory.Exists(Path.Combine(current.FullName, ".git")))
-            {
-                return current.FullName;
-            }
-            current = current.Parent;
-        }
-        return dir;
-    }
-
-    static List<(string Name, int Line)> ExtractDocumentSymbols(string path)
-    {
-        var result = new List<(string, int)>();
-        if (!File.Exists(path)) return result;
-        var lines = File.ReadAllLines(path);
-        for (int i = 0; i < lines.Length; i++)
-        {
-            var l = lines[i].Trim();
-            if (l.StartsWith("class ") || l.StartsWith("struct ") || l.StartsWith("enum "))
-                result.Add((l.Split(' ')[1].Split('{', ':')[0], i + 1));
-            if (l.StartsWith("def ") || l.StartsWith("fn "))
-                result.Add((l.Split(' ')[1].Split('(')[0], i + 1));
-        }
-        return result;
-    }
-
-    static List<(string Name, int Line)> ExtractCodeLens(string path) => ExtractDocumentSymbols(path);
-
-    static int CountSemanticTokens(string path)
-    {
-        if (!File.Exists(path)) return 0;
-        var text = File.ReadAllText(path);
-        return text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
-    }
-
-    static int FindDefinitionLine(string path, string name)
-    {
-        var lines = File.Exists(path) ? File.ReadAllLines(path) : Array.Empty<string>();
-        for (int i = 0; i < lines.Length; i++)
-        {
-            if (lines[i].Contains(name)) return i + 1;
-        }
-        return -1;
-    }
 }

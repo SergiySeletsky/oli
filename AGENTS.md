@@ -34,7 +34,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 3. Integrate LLM capabilities using packages like [AutoGen.NET](https://github.com/microsoft/autogen) or [Semantic Kernel](https://github.com/microsoft/semantic-kernel).
 4. Achieve feature parity with the Rust CLI before deprecating it.
 5. Migrate features incrementally, implementing at least ten per agent run and recording progress here.
-6. Track ported files: `Program.cs`, `ConversationSummary.cs`, and `ToolExecution.cs` are largely complete.
+6. Track ported files: `Program.cs`, `ConversationSummary.cs`, `ToolExecution.cs`, and `LspCommands.cs` are largely complete.
 
 ### Accomplished
 - Created the `dotnet/OLI.NetCli` project with `run`, `agent-mode`, and `models` commands.
@@ -133,6 +133,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added backup commands `backup-tasks`, `restore-tasks`, `backup-tools`, `restore-tools`, `backup-summaries`, `restore-summaries`, `backup-lsp`, `restore-lsp`, and `backup-all`.
 - Added task listing command `tasks-by-priority`.
 - Added conversation editing via `conversation-insert` and state inspection with `open-state`.
+- Moved LSP commands into `LspCommands.cs` and added `lsp-hover`, `lsp-completion`, `lsp-references`, `lsp-rename`, `lsp-signature`, `lsp-format`, `lsp-actions`, `lsp-folding-ranges`, `lsp-diagnostics`, and `lsp-open`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
