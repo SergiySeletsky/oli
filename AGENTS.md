@@ -144,6 +144,12 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added `grep-count` and `tail-file-follow` file utilities.
 - Added task age viewer `task-age` and conversation exporter `export-conversation-text`.
 - Added `open-tools` helper and `list-tool-names` command.
+- Added `show-log-level` and `tail-log` commands for log inspection.
+- Implemented task cleanup with `cleanup-tasks`.
+- Added `conversation-average-length` to calculate average message length.
+- Added task text import/export via `export-tasks-text` and `import-tasks-text`.
+- Introduced memory utilities `memory-section-lines` and `rename-memory-section`.
+- Added regex task search with `search-tasks-regex` and log splitting via `split-log`.
 - Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.

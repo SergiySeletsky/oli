@@ -844,6 +844,139 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // show-log-level
+        var showLogLevelCmd = new Command("show-log-level", "Display current log level");
+        showLogLevelCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.LogLevel);
+            await Task.CompletedTask;
+        });
+
+        // tail-log
+        var tailLogLinesOpt = new Option<int>("--lines", () => 20);
+        var tailLogCmd = new Command("tail-log", "Show last N lines of log") { tailLogLinesOpt };
+        tailLogCmd.SetHandler(async (int lines) =>
+        {
+            Console.WriteLine(LogUtils.ReadLog(lines));
+            await Task.CompletedTask;
+        }, tailLogLinesOpt);
+
+        // cleanup-tasks
+        var cleanupDaysOpt = new Option<int>("--days", () => 30, "Remove tasks older than N days");
+        var cleanupTasksCmd = new Command("cleanup-tasks", "Delete tasks older than specified days") { cleanupDaysOpt };
+        cleanupTasksCmd.SetHandler(async (int days) =>
+        {
+            var state = Program.LoadState();
+            var cutoff = DateTime.UtcNow.AddDays(-days);
+            state.Tasks.RemoveAll(t => t.CreatedAt < cutoff);
+            Program.SaveState(state);
+            Console.WriteLine($"Removed tasks older than {days} days");
+            await Task.CompletedTask;
+        }, cleanupDaysOpt);
+
+        // conversation-average-length
+        var convAvgCmd = new Command("conversation-average-length", "Average length of conversation messages");
+        convAvgCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.Conversation.Count == 0) { Console.WriteLine("0"); return; }
+            var avg = state.Conversation.Average(m => m.Length);
+            Console.WriteLine(avg.ToString("F1"));
+            await Task.CompletedTask;
+        });
+
+        // export-tasks-text
+        var exportTextArg = new Argument<string>("path");
+        var exportTasksTextCmd = new Command("export-tasks-text", "Export tasks to plain text") { exportTextArg };
+        exportTasksTextCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var lines = state.Tasks.Select(t => $"{t.Id} {t.Description}");
+            await File.WriteAllLinesAsync(path, lines);
+            Console.WriteLine($"exported to {path}");
+        }, exportTextArg);
+
+        // import-tasks-text
+        var importTextArg = new Argument<string>("path");
+        var importTasksTextCmd = new Command("import-tasks-text", "Import tasks from plain text") { importTextArg };
+        importTasksTextCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var tasks = lines.Select(l => new TaskRecord { Id = Guid.NewGuid().ToString(), Description = l, Status = "todo", CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow }).ToList();
+            var state = Program.LoadState();
+            state.Tasks.AddRange(tasks);
+            Program.SaveState(state);
+            Console.WriteLine($"imported {tasks.Count} tasks");
+            await Task.CompletedTask;
+        }, importTextArg);
+
+        // memory-section-lines
+        var memSectionOpt = new Option<string>("--section") { IsRequired = true };
+        var memSectionCmd = new Command("memory-section-lines", "Show lines of a memory section") { memSectionOpt };
+        memSectionCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            var collect = false;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## ")) { collect = line[3..].Trim() == section; continue; }
+                if (collect && line.StartsWith("- ")) Console.WriteLine(line[2..]);
+            }
+            await Task.CompletedTask;
+        }, memSectionOpt);
+
+        // rename-memory-section
+        var renameOldOpt = new Option<string>("--old") { IsRequired = true };
+        var renameNewOpt = new Option<string>("--new") { IsRequired = true };
+        var renameMemCmd = new Command("rename-memory-section", "Rename a memory section") { renameOldOpt, renameNewOpt };
+        renameMemCmd.SetHandler(async (string oldName, string newName) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath).ToList();
+            var changed = false;
+            for (int i = 0; i < lines.Count; i++)
+            {
+                if (lines[i].StartsWith("## ") && lines[i][3..].Trim() == oldName)
+                {
+                    lines[i] = "## " + newName;
+                    changed = true;
+                }
+            }
+            if (changed) { File.WriteAllLines(Program.MemoryPath, lines); Console.WriteLine("renamed"); }
+            else Console.WriteLine("section not found");
+            await Task.CompletedTask;
+        }, renameOldOpt, renameNewOpt);
+
+        // search-tasks-regex
+        var tasksRegexArg = new Argument<string>("pattern");
+        var searchTasksRegexCmd = new Command("search-tasks-regex", "Regex search task descriptions") { tasksRegexArg };
+        searchTasksRegexCmd.SetHandler(async (string pattern) =>
+        {
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => regex.IsMatch(t.Description)))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, tasksRegexArg);
+
+        // split-log
+        var splitDirArg = new Argument<string>("directory");
+        var splitLogCmd = new Command("split-log", "Split log file by day into directory") { splitDirArg };
+        splitLogCmd.SetHandler(async (string directory) =>
+        {
+            if (!File.Exists(LogUtils.LogPath)) { Console.WriteLine("no log"); return; }
+            Directory.CreateDirectory(directory);
+            foreach (var group in File.ReadLines(LogUtils.LogPath).GroupBy(l => l.Split(' ')[0].Substring(0, 10)))
+            {
+                var path = Path.Combine(directory, $"{group.Key}.log");
+                await File.AppendAllLinesAsync(path, group);
+            }
+            Console.WriteLine($"logs split to {directory}");
+        }, splitDirArg);
+
         root.Add(importTasksCsvCmd);
 
     static string EscapeCsv(string s)
@@ -907,6 +1040,16 @@ public static class AdditionalCommands
         root.Add(convExportTxtCmd);
         root.Add(openToolsCmd);
         root.Add(listToolNamesCmd);
+        root.Add(showLogLevelCmd);
+        root.Add(tailLogCmd);
+        root.Add(cleanupTasksCmd);
+        root.Add(convAvgCmd);
+        root.Add(exportTasksTextCmd);
+        root.Add(importTasksTextCmd);
+        root.Add(memSectionCmd);
+        root.Add(renameMemCmd);
+        root.Add(searchTasksRegexCmd);
+        root.Add(splitLogCmd);
 
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };
