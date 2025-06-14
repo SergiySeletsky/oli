@@ -32,6 +32,7 @@ public static class ToolCommands
 
         var toolIdOpt = new Option<string>("--id") { IsRequired = true };
         var msgOpt = new Option<string>("--message") { IsRequired = true };
+        var statusOpt = new Option<string>("--status") { IsRequired = true };
         var updateToolCmd = new Command("update-tool-progress", "Update tool message")
         {
             toolIdOpt, msgOpt
@@ -233,6 +234,138 @@ public static class ToolCommands
             await Task.CompletedTask;
         }, importToolsPathOpt);
 
+        var listToolIdsCmd = new Command("list-tool-ids", "List tool execution IDs");
+        listToolIdsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions) Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        });
+
+        var toolExistsCmd = new Command("tool-exists", "Check if tool id exists") { toolIdOpt };
+        toolExistsCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Any(t => t.Id == id) ? "true" : "false");
+            await Task.CompletedTask;
+        }, toolIdOpt);
+
+        var latestToolCmd = new Command("latest-tool", "Show most recent tool id");
+        latestToolCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.OrderByDescending(t => t.StartTime).FirstOrDefault();
+            Console.WriteLine(tool?.Id ?? "none");
+            await Task.CompletedTask;
+        });
+
+        var toolDurationCmd = new Command("tool-duration", "Show tool run duration") { toolIdOpt };
+        toolDurationCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            if (tool?.EndTime != null) Console.WriteLine((tool.EndTime.Value - tool.StartTime).TotalSeconds);
+            else Console.WriteLine("running");
+            await Task.CompletedTask;
+        }, toolIdOpt);
+
+        var toolsByStatusCmd = new Command("tools-by-status", "List tools with status") { statusOpt };
+        toolsByStatusCmd.SetHandler(async (string status) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions.Where(te => te.Status == status))
+                Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        }, statusOpt);
+
+        var toolAgeCmd = new Command("tool-age", "Show seconds since tool start") { toolIdOpt };
+        toolAgeCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            if (tool != null) Console.WriteLine((DateTime.UtcNow - tool.StartTime).TotalSeconds);
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, toolIdOpt);
+
+        var recentOpt = new Option<int>("--minutes", () => 60);
+        var toolsRecentCmd = new Command("tools-recent", "List tools started in last minutes") { recentOpt };
+        toolsRecentCmd.SetHandler(async (int minutes) =>
+        {
+            var state = Program.LoadState();
+            var cutoff = DateTime.UtcNow.AddMinutes(-minutes);
+            foreach (var t in state.ToolExecutions.Where(te => te.StartTime >= cutoff))
+                Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        }, recentOpt);
+
+        var runningToolCountCmd = new Command("running-tool-count", "Number of running tools");
+        runningToolCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Count(te => te.Status == "running"));
+            await Task.CompletedTask;
+        });
+
+        var nameArg = new Argument<string>("name");
+        var toolsByNameCmd = new Command("tools-by-name", "List tools by name") { nameArg };
+        toolsByNameCmd.SetHandler(async (string name) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions.Where(te => te.Name == name)) Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        }, nameArg);
+
+        var toolCountByNameCmd = new Command("tool-count-by-name", "Count tools by name") { nameArg };
+        toolCountByNameCmd.SetHandler(async (string name) =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Count(te => te.Name == name));
+            await Task.CompletedTask;
+        }, nameArg);
+
+        var exportRunArg = new Argument<string>("path");
+        var exportRunCmd = new Command("export-tool-run", "Export a tool by id") { toolIdOpt, exportRunArg };
+        exportRunCmd.SetHandler(async (string id, string path) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            if (tool != null)
+            {
+                await File.WriteAllTextAsync(path, JsonSerializer.Serialize(tool, new JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine("exported");
+            }
+            else Console.WriteLine("not found");
+        }, toolIdOpt, exportRunArg);
+
+        var importRunArg = new Argument<string>("path");
+        var importRunCmd = new Command("import-tool-run", "Import a tool run") { importRunArg };
+        importRunCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = File.ReadAllText(path);
+            var tool = JsonSerializer.Deserialize<ToolExecution>(json);
+            if (tool != null)
+            {
+                var state = Program.LoadState();
+                state.ToolExecutions.Add(tool);
+                Program.SaveState(state);
+                Console.WriteLine("imported");
+            }
+            else Console.WriteLine("invalid");
+            await Task.CompletedTask;
+        }, importRunArg);
+
+        var clearToolsCmd = new Command("clear-tools", "Remove all tool executions");
+        clearToolsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.ToolExecutions.Clear();
+            Program.SaveState(state);
+            Console.WriteLine("cleared");
+            await Task.CompletedTask;
+        });
+
         root.AddCommand(startToolCmd);
         root.AddCommand(updateToolCmd);
         root.AddCommand(completeToolCmd);
@@ -242,6 +375,19 @@ public static class ToolCommands
         root.AddCommand(toolInfoCmd);
         root.AddCommand(toolCountCmd);
         root.AddCommand(runningToolsCmd);
+        root.AddCommand(listToolIdsCmd);
+        root.AddCommand(toolExistsCmd);
+        root.AddCommand(latestToolCmd);
+        root.AddCommand(toolDurationCmd);
+        root.AddCommand(toolsByStatusCmd);
+        root.AddCommand(toolAgeCmd);
+        root.AddCommand(toolsRecentCmd);
+        root.AddCommand(runningToolCountCmd);
+        root.AddCommand(toolsByNameCmd);
+        root.AddCommand(toolCountByNameCmd);
+        root.AddCommand(exportRunCmd);
+        root.AddCommand(importRunCmd);
+        root.AddCommand(clearToolsCmd);
         root.AddCommand(listToolsByTaskCmd);
         root.AddCommand(deleteToolCmd);
         root.AddCommand(setToolMetaCmd);

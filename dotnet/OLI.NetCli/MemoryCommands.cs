@@ -353,6 +353,16 @@ public static class MemoryCommands
             await Task.CompletedTask;
         });
 
+        var diffArg = new Argument<string>("path");
+        var memoryDiffCmd = new Command("memory-diff", "Diff memory file with another") { diffArg };
+        memoryDiffCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path) || !File.Exists(Program.MemoryPath)) { Console.WriteLine("file missing"); return; }
+            var diff = Program.GenerateDiff(File.ReadAllText(Program.MemoryPath), File.ReadAllText(path));
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, diffArg);
+
         // delete-memory-section
         var deleteSectionOption = new Option<string>("--section") { IsRequired = true };
         var deleteMemorySectionCmd = new Command("delete-memory-section", "Remove a memory section") { deleteSectionOption };
@@ -424,6 +434,7 @@ public static class MemoryCommands
         root.AddCommand(searchMemoryCmd);
         root.AddCommand(deleteMemoryLineCmd);
         root.AddCommand(memoryDedupeCmd);
+        root.AddCommand(memoryDiffCmd);
         root.AddCommand(deleteMemorySectionCmd);
         root.AddCommand(listMemorySectionsCmd);
         root.AddCommand(sectionExistsCmd);

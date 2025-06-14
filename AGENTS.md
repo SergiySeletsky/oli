@@ -261,6 +261,16 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `resume-all-tasks`, `tasks-paused`, `tasks-created-before`,
   `tasks-created-after`, `archive-task`, `unarchive-task`, `archived-tasks`,
   and `list-task-ids`.
+- Added path helper `open-tools`.
+- Added task listing commands `tasks-today` and `tasks-week`.
+- Added tool utilities `list-tool-ids`, `tool-exists`, `latest-tool`,
+  `tool-duration`, `tools-by-status`, `tool-age`, `tools-recent`,
+  `running-tool-count`, `tools-by-name`, `tool-count-by-name`,
+  `export-tool-run`, `import-tool-run`, and `clear-tools`.
+- Added log utilities `show-log-level`, `search-log-regex`, and `tail-log`.
+- Added file utilities `grep-count` and `tail-file-follow`.
+- Added memory command `memory-diff`.
+- Added JSON helpers `json-merge` and `json-validate`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.

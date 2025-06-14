@@ -327,6 +327,26 @@ public static class TaskCommands
             await Task.CompletedTask;
         });
 
+        var tasksTodayCmd = new Command("tasks-today", "List tasks created today");
+        tasksTodayCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var today = DateTime.UtcNow.Date;
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt.Date == today))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        var tasksWeekCmd = new Command("tasks-week", "List tasks created this week");
+        tasksWeekCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var start = DateTime.UtcNow.Date.AddDays(-7);
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt.Date >= start))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
         var updateDescIdOpt = new Option<string>("--id") { IsRequired = true };
         var updateDescOpt = new Option<string>("--description") { IsRequired = true };
         var updateTaskDescCmd = new Command("update-task-desc", "Update task description")
@@ -492,6 +512,8 @@ public static class TaskCommands
         root.AddCommand(importTasksCmd);
         root.AddCommand(purgeFailedCmd);
         root.AddCommand(tasksOverviewCmd);
+        root.AddCommand(tasksTodayCmd);
+        root.AddCommand(tasksWeekCmd);
         root.AddCommand(deleteTaskCmd);
         root.AddCommand(taskInfoCmd);
         root.AddCommand(latestTaskCmd);

@@ -252,6 +252,26 @@ public static class FileCommands
             await Task.CompletedTask;
         }, readPathOption, tailLinesOpt);
 
+        var followOpt = new Option<bool>("--follow", () => false);
+        var tailFollowCmd = new Command("tail-file-follow", "Tail file continuously") { readPathOption, tailLinesOpt, followOpt };
+        tailFollowCmd.SetHandler(async (string path, int lines, bool follow) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var sr = new StreamReader(fs);
+            var all = await sr.ReadToEndAsync();
+            foreach (var line in all.Split('\n').TakeLast(lines)) Console.WriteLine(line);
+            if (follow)
+            {
+                while (true)
+                {
+                    var line = await sr.ReadLineAsync();
+                    if (line != null) Console.WriteLine(line);
+                    await Task.Delay(1000);
+                }
+            }
+        }, readPathOption, tailLinesOpt, followOpt);
+
         var fileSizeCmd = new Command("file-size", "Show size of a file") { readPathOption };
         fileSizeCmd.SetHandler(async (string path) =>
         {
@@ -259,6 +279,16 @@ public static class FileCommands
             Console.WriteLine(size);
             await Task.CompletedTask;
         }, readPathOption);
+
+        var grepCountArg = new Argument<string>("pattern");
+        var grepCountCmd = new Command("grep-count", "Count matches of pattern") { readPathOption, grepCountArg };
+        grepCountCmd.SetHandler(async (string path, string pattern) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            int count = File.ReadLines(path).Count(l => l.Contains(pattern));
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        }, readPathOption, grepCountArg);
 
         var createDirCmd = new Command("create-directory", "Create a directory") { dirPathOption };
         createDirCmd.SetHandler(async (string path) =>
@@ -323,6 +353,8 @@ public static class FileCommands
         root.Add(listDirRecursiveCmd);
         root.Add(headFileCmd);
         root.Add(tailFileCmd);
+        root.Add(tailFollowCmd);
+        root.Add(grepCountCmd);
         root.Add(fileSizeCmd);
         root.Add(createDirCmd);
         root.Add(deleteDirCmd);

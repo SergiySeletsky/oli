@@ -46,9 +46,28 @@ public static class JsonCommands
             await Task.CompletedTask;
         }, pathArg, otherArg);
 
+        var jsonMergeCmd = new Command("json-merge", "Merge two JSON files") { pathArg, otherArg };
+        jsonMergeCmd.SetHandler(async (string path, string other) =>
+        {
+            if (!File.Exists(path) || !File.Exists(other)) { Console.WriteLine("File not found"); return; }
+            var result = JsonUtils.Merge(path, other);
+            Console.WriteLine(result);
+            await Task.CompletedTask;
+        }, pathArg, otherArg);
+
+        var jsonValidateCmd = new Command("json-validate", "Validate JSON file") { pathArg };
+        jsonValidateCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("File not found"); return; }
+            Console.WriteLine(JsonUtils.IsValid(path) ? "valid" : "invalid");
+            await Task.CompletedTask;
+        }, pathArg);
+
         root.Add(readJsonCmd);
         root.Add(writeJsonCmd);
         root.Add(formatJsonCmd);
         root.Add(jsonDiffCmd);
+        root.Add(jsonMergeCmd);
+        root.Add(jsonValidateCmd);
     }
 }
