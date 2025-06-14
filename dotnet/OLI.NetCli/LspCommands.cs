@@ -40,6 +40,25 @@ public static class LspCommands
             await Task.CompletedTask;
         }, lspIdOpt);
 
+        // restart
+        var lspRestartCmd = new Command("lsp-restart", "Restart LSP server") { lspIdOpt };
+        lspRestartCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var info = state.LspServers.FirstOrDefault(s => s.Id == id);
+            if (info == null)
+            {
+                Console.WriteLine("Server not found");
+                return;
+            }
+            state.LspServers.RemoveAll(s => s.Id == id);
+            var newInfo = new LspServerInfo { Language = info.Language, RootPath = info.RootPath };
+            state.LspServers.Add(newInfo);
+            Program.SaveState(state);
+            Console.WriteLine($"Restarted {id} -> {newInfo.Id}");
+            await Task.CompletedTask;
+        }, lspIdOpt);
+
         // stop all
         var lspStopAllCmd = new Command("lsp-stop-all", "Stop all LSP servers");
         lspStopAllCmd.SetHandler(async () =>
@@ -72,6 +91,9 @@ public static class LspCommands
             else Console.WriteLine($"{s.Id}: {s.Language} started {s.StartedAt:u} root {s.RootPath}");
             await Task.CompletedTask;
         }, lspIdOpt);
+
+        var lspPathCmd = new Command("lsp-path", "Show path to LSP server list");
+        lspPathCmd.SetHandler(() => { Console.WriteLine(Program.LspPath); });
 
         // symbols
         var lspSymbolsCmd = new Command("lsp-symbols", "List symbols") { lspFileOpt };
@@ -204,9 +226,11 @@ public static class LspCommands
 
         root.Add(lspStartCmd);
         root.Add(lspStopCmd);
+        root.Add(lspRestartCmd);
         root.Add(lspStopAllCmd);
         root.Add(lspListCmd);
         root.Add(lspInfoCmd);
+        root.Add(lspPathCmd);
         root.Add(lspSymbolsCmd);
         root.Add(lspCodeLensCmd);
         root.Add(lspTokensCmd);

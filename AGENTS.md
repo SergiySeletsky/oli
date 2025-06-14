@@ -134,6 +134,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added task listing command `tasks-by-priority`.
 - Added conversation editing via `conversation-insert` and state inspection with `open-state`.
 - Moved LSP commands into `LspCommands.cs` and added `lsp-hover`, `lsp-completion`, `lsp-references`, `lsp-rename`, `lsp-signature`, `lsp-format`, `lsp-actions`, `lsp-folding-ranges`, `lsp-diagnostics`, and `lsp-open`.
+- Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
+- Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
+- Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
+- Added LSP helper commands `lsp-restart` and `lsp-path`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

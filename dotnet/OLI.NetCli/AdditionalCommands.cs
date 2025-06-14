@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Diagnostics;
 using System.Text;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using static LogUtils;
 using static BackupUtils;
@@ -523,6 +524,189 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, insertIdxOpt, insertTextOpt);
 
+        // conversation-replace
+        var replaceIdxOpt = new Option<int>("--index") { IsRequired = true };
+        var replaceTextOpt = new Option<string>("--text") { IsRequired = true };
+        var convReplaceCmd = new Command("conversation-replace", "Replace message at index") { replaceIdxOpt, replaceTextOpt };
+        convReplaceCmd.SetHandler(async (int index, string text) =>
+        {
+            var state = Program.LoadState();
+            if (index < 0 || index >= state.Conversation.Count)
+            {
+                Console.WriteLine("Invalid index");
+                return;
+            }
+            state.Conversation[index] = text;
+            Program.SaveState(state);
+            Console.WriteLine("Replaced");
+            await Task.CompletedTask;
+        }, replaceIdxOpt, replaceTextOpt);
+
+        // conversation-move
+        var moveFromOpt = new Option<int>("--from") { IsRequired = true };
+        var moveToOpt = new Option<int>("--to") { IsRequired = true };
+        var convMoveCmd = new Command("conversation-move", "Move message to new index") { moveFromOpt, moveToOpt };
+        convMoveCmd.SetHandler(async (int from, int to) =>
+        {
+            var state = Program.LoadState();
+            if (from < 0 || from >= state.Conversation.Count || to < 0 || to > state.Conversation.Count)
+            {
+                Console.WriteLine("Invalid index");
+                return;
+            }
+            var item = state.Conversation[from];
+            state.Conversation.RemoveAt(from);
+            state.Conversation.Insert(to, item);
+            Program.SaveState(state);
+            Console.WriteLine("Moved");
+            await Task.CompletedTask;
+        }, moveFromOpt, moveToOpt);
+
+        // conversation-role-count
+        var convRoleCountCmd = new Command("conversation-role-count", "Count messages by role");
+        convRoleCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            int user = 0, assistant = 0, system = 0;
+            foreach (var line in state.Conversation)
+            {
+                if (line.StartsWith("[user]") || line.StartsWith("User:")) user++;
+                else if (line.StartsWith("[assistant]") || line.StartsWith("Assistant:")) assistant++;
+                else if (line.StartsWith("[system]") || line.StartsWith("System:")) system++;
+            }
+            Console.WriteLine($"user:{user} assistant:{assistant} system:{system}");
+            await Task.CompletedTask;
+        });
+
+        // memory-sort
+        var memorySortCmd = new Command("sort-memory", "Sort memory sections alphabetically");
+        memorySortCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            var sections = new SortedDictionary<string, List<string>>();
+            string current = string.Empty;
+            foreach (var l in lines)
+            {
+                if (l.StartsWith("## "))
+                {
+                    current = l.Substring(3).Trim();
+                    sections[current] = new List<string>();
+                }
+                else if (!string.IsNullOrWhiteSpace(current))
+                {
+                    sections[current].Add(l);
+                }
+            }
+            var sb = new StringBuilder();
+            foreach (var kv in sections)
+            {
+                sb.AppendLine($"## {kv.Key}");
+                foreach (var l in kv.Value) sb.AppendLine(l);
+            }
+            File.WriteAllText(Program.MemoryPath, sb.ToString());
+            Console.WriteLine("sorted");
+            await Task.CompletedTask;
+        });
+
+        // search-memory-regex
+        var regexArg = new Argument<string>("pattern");
+        var searchMemoryRegexCmd = new Command("search-memory-regex", "Regex search in memory") { regexArg };
+        searchMemoryRegexCmd.SetHandler(async (string pattern) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            foreach (var (line, idx) in File.ReadAllLines(Program.MemoryPath).Select((l, i) => (l, i + 1)))
+                if (regex.IsMatch(line)) Console.WriteLine($"{idx}:{line}");
+            await Task.CompletedTask;
+        }, regexArg);
+
+        // memory-word-frequency
+        var topOpt = new Option<int>("--top", () => 10);
+        var memoryFreqCmd = new Command("memory-word-frequency", "Top N words in memory") { topOpt };
+        memoryFreqCmd.SetHandler(async (int top) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var words = File.ReadAllText(Program.MemoryPath)
+                .Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(w => w.ToLowerInvariant());
+            var freq = words.GroupBy(w => w).Select(g => (Word: g.Key, Count: g.Count()))
+                .OrderByDescending(x => x.Count).Take(top);
+            foreach (var (word, count) in freq) Console.WriteLine($"{word}:{count}");
+            await Task.CompletedTask;
+        }, topOpt);
+
+        // tasks-by-created
+        var tasksByCreatedCmd = new Command("tasks-by-created", "List tasks sorted by creation time");
+        tasksByCreatedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.OrderBy(t => t.CreatedAt))
+                Console.WriteLine($"{t.CreatedAt:u} {t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // reset-tasks
+        var resetTasksCmd = new Command("reset-tasks", "Clear tasks and reset current task");
+        resetTasksCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.Tasks.Clear();
+            state.CurrentTaskId = null;
+            Program.SaveState(state);
+            Console.WriteLine("tasks reset");
+            await Task.CompletedTask;
+        });
+
+        // export-tasks-csv
+        var exportCsvArg = new Argument<string>("path");
+        var exportTasksCsvCmd = new Command("export-tasks-csv", "Export tasks to CSV") { exportCsvArg };
+        exportTasksCsvCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var sb = new StringBuilder();
+            sb.AppendLine("id,description,status,created_at,updated_at,tool_count,input_tokens,output_tokens,priority");
+            foreach (var t in state.Tasks)
+            {
+                sb.AppendLine($"{t.Id},{EscapeCsv(t.Description)},{t.Status},{t.CreatedAt:u},{t.UpdatedAt:u},{t.ToolCount},{t.InputTokens},{t.OutputTokens},{t.Priority}");
+            }
+            File.WriteAllText(path, sb.ToString());
+            Console.WriteLine($"exported to {path}");
+            await Task.CompletedTask;
+        }, exportCsvArg);
+
+        // import-tasks-csv
+        var importCsvArg = new Argument<string>("path");
+        var importTasksCsvCmd = new Command("import-tasks-csv", "Import tasks from CSV") { importCsvArg };
+        importTasksCsvCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path).Skip(1);
+            var list = new List<TaskRecord>();
+            foreach (var line in lines)
+            {
+                var parts = line.Split(',');
+                if (parts.Length < 9) continue;
+                list.Add(new TaskRecord
+                {
+                    Id = parts[0],
+                    Description = parts[1],
+                    Status = parts[2],
+                    CreatedAt = DateTime.Parse(parts[3]),
+                    UpdatedAt = DateTime.Parse(parts[4]),
+                    ToolCount = int.Parse(parts[5]),
+                    InputTokens = int.Parse(parts[6]),
+                    OutputTokens = int.Parse(parts[7]),
+                    Priority = int.Parse(parts[8])
+                });
+            }
+            var state = Program.LoadState();
+            state.Tasks = list;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, importCsvArg);
+
         // open-state
         var openStateCmd = new Command("open-state", "Open state.json in default editor");
         openStateCmd.SetHandler(async () =>
@@ -558,6 +742,16 @@ public static class AdditionalCommands
         root.Add(backupAllCmd);
         root.Add(listBackupsCmd);
         root.Add(tasksByPriorityCmd);
+        root.Add(convReplaceCmd);
+        root.Add(convMoveCmd);
+        root.Add(convRoleCountCmd);
+        root.Add(memorySortCmd);
+        root.Add(searchMemoryRegexCmd);
+        root.Add(memoryFreqCmd);
+        root.Add(tasksByCreatedCmd);
+        root.Add(resetTasksCmd);
+        root.Add(exportTasksCsvCmd);
+        root.Add(importTasksCsvCmd);
         root.Add(convInsertCmd);
         root.Add(openStateCmd);
         root.Add(taskRename);
@@ -575,5 +769,14 @@ public static class AdditionalCommands
         root.Add(importSection);
         root.Add(openMemory);
         root.Add(listKeys);
+    }
+
+    static string EscapeCsv(string s)
+    {
+        if (s.Contains(',') || s.Contains('"') || s.Contains('\n'))
+        {
+            return "\"" + s.Replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 }
