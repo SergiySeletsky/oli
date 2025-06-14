@@ -102,6 +102,8 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added LSP management commands `lsp-start`, `lsp-stop`, `lsp-stop-all`, `lsp-list`, and `lsp-info`.
 - Added LSP utilities `lsp-symbols`, `lsp-codelens`, `lsp-semantic-tokens`, `lsp-definition`, and `lsp-workspace-root`.
 - Introduced `LspServerInfo` model and persisted servers in `lsp.json`.
+- Added memory maintenance commands `merge-memory-file`, `reset-memory-file`, `copy-memory-section`, and `swap-memory-sections`.
+- Added conversation utilities `list-conversation`, `conversation-at`, `delete-conversation-before`, `delete-conversation-after`, `delete-conversation-contains`, and `reverse-conversation`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

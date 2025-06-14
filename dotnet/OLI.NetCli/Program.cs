@@ -969,6 +969,87 @@ class Program
             Console.WriteLine($"count:{count} chars:{chars}\nfirst:{first}\nlast:{last}");
             await Task.CompletedTask;
         });
+
+        var listConvCmd = new Command("list-conversation", "List conversation messages");
+        listConvCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            for (int i = 0; i < state.Conversation.Count; i++)
+            {
+                Console.WriteLine($"[{i}] {state.Conversation[i]}");
+            }
+            await Task.CompletedTask;
+        });
+
+        var atIndexOpt = new Option<int>("--index") { IsRequired = true };
+        var conversationAtCmd = new Command("conversation-at", "Show message at index") { atIndexOpt };
+        conversationAtCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.Conversation.Count)
+                Console.WriteLine(state.Conversation[index]);
+            else
+                Console.WriteLine("Invalid index");
+            await Task.CompletedTask;
+        }, atIndexOpt);
+
+        var delBeforeOpt = new Option<int>("--index") { IsRequired = true };
+        var deleteBeforeCmd = new Command("delete-conversation-before", "Delete messages before index") { delBeforeOpt };
+        deleteBeforeCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.Conversation.Count)
+            {
+                state.Conversation.RemoveRange(0, index);
+                SaveState(state);
+                Console.WriteLine("Messages removed");
+            }
+            else
+            {
+                Console.WriteLine("Invalid index");
+            }
+            await Task.CompletedTask;
+        }, delBeforeOpt);
+
+        var delAfterOpt = new Option<int>("--index") { IsRequired = true };
+        var deleteAfterCmd = new Command("delete-conversation-after", "Delete messages after index") { delAfterOpt };
+        deleteAfterCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.Conversation.Count)
+            {
+                state.Conversation.RemoveRange(index + 1, state.Conversation.Count - index - 1);
+                SaveState(state);
+                Console.WriteLine("Messages removed");
+            }
+            else
+            {
+                Console.WriteLine("Invalid index");
+            }
+            await Task.CompletedTask;
+        }, delAfterOpt);
+
+        var delContainsOpt = new Option<string>("--text") { IsRequired = true };
+        var deleteContainsCmd = new Command("delete-conversation-contains", "Delete messages containing text") { delContainsOpt };
+        deleteContainsCmd.SetHandler(async (string text) =>
+        {
+            var state = LoadState();
+            int before = state.Conversation.Count;
+            state.Conversation = state.Conversation.Where(m => !m.Contains(text, StringComparison.OrdinalIgnoreCase)).ToList();
+            SaveState(state);
+            Console.WriteLine(before - state.Conversation.Count);
+            await Task.CompletedTask;
+        }, delContainsOpt);
+
+        var reverseConvCmd = new Command("reverse-conversation", "Reverse conversation order");
+        reverseConvCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            state.Conversation.Reverse();
+            SaveState(state);
+            Console.WriteLine("Conversation reversed");
+            await Task.CompletedTask;
+        });
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
         memoryInfoCmd.SetHandler(async () =>
         {
@@ -1064,6 +1145,34 @@ class Program
             Console.WriteLine($"Memory file exported to {path}");
             await Task.CompletedTask;
         }, exportMemoryPathOpt);
+
+        var mergeMemoryPathOpt = new Option<string>("--path") { IsRequired = true };
+        var mergeMemoryCmd = new Command("merge-memory-file", "Merge another memory file")
+        {
+            mergeMemoryPathOpt
+        };
+        mergeMemoryCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var existing = File.Exists(MemoryPath) ? File.ReadAllText(MemoryPath) : string.Empty;
+            var extra = File.ReadAllText(path);
+            File.WriteAllText(MemoryPath, existing + extra);
+            Console.WriteLine("Memory files merged");
+            await Task.CompletedTask;
+        }, mergeMemoryPathOpt);
+
+        var resetMemoryCmd = new Command("reset-memory-file", "Delete and recreate memory file");
+        resetMemoryCmd.SetHandler(async () =>
+        {
+            var template = "# oli.md\n\n## Project Structure\n";
+            File.WriteAllText(MemoryPath, template);
+            Console.WriteLine("Memory file reset");
+            await Task.CompletedTask;
+        });
 
         var statePathCmd = new Command("state-path", "Show path of state file");
         statePathCmd.SetHandler(async () =>
@@ -1162,6 +1271,56 @@ class Program
             }
             await Task.CompletedTask;
         });
+
+        var copySectionOpt = new Option<string>("--section") { IsRequired = true };
+        var copyDestOpt = new Option<string>("--dest") { IsRequired = true };
+        var copySectionCmd = new Command("copy-memory-section", "Copy memory section to file") { copySectionOpt, copyDestOpt };
+        copySectionCmd.SetHandler(async (string section, string dest) =>
+        {
+            if (!File.Exists(MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(MemoryPath);
+            var collecting = false;
+            var selected = new List<string>();
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## "))
+                {
+                    collecting = line[3..].Trim() == section;
+                    continue;
+                }
+                if (collecting && line.StartsWith("- "))
+                {
+                    selected.Add(line);
+                }
+            }
+            File.WriteAllLines(dest, selected);
+            Console.WriteLine($"Section copied to {dest}");
+            await Task.CompletedTask;
+        }, copySectionOpt, copyDestOpt);
+
+        var swapAOpt = new Option<string>("--first") { IsRequired = true };
+        var swapBOpt = new Option<string>("--second") { IsRequired = true };
+        var swapSectionCmd = new Command("swap-memory-sections", "Swap two memory sections") { swapAOpt, swapBOpt };
+        swapSectionCmd.SetHandler(async (string first, string second) =>
+        {
+            if (!File.Exists(MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(MemoryPath).ToList();
+            int idxA = lines.FindIndex(l => l.StartsWith("## "+first));
+            int idxB = lines.FindIndex(l => l.StartsWith("## "+second));
+            if (idxA == -1 || idxB == -1) { Console.WriteLine("Section not found"); return; }
+            if (idxA > idxB) { var t = idxA; idxA = idxB; idxB = t; var name = first; first = second; second = name; }
+            int endA = lines.Skip(idxA+1).TakeWhile(l => !l.StartsWith("## ")).Count();
+            int endB = lines.Skip(idxB+1).TakeWhile(l => !l.StartsWith("## ")).Count();
+            var secA = lines.GetRange(idxA, endA+1);
+            var secB = lines.GetRange(idxB, endB+1);
+            lines.RemoveRange(idxB, endB+1);
+            lines.InsertRange(idxB, secA);
+            lines.RemoveRange(idxA, endA+1);
+            lines.InsertRange(idxA, secB);
+            File.WriteAllLines(MemoryPath, lines);
+            Console.WriteLine("Sections swapped");
+            await Task.CompletedTask;
+        }, swapAOpt, swapBOpt);
 
         var sectionCountCmd = new Command("memory-section-count", "Count memory sections");
         sectionCountCmd.SetHandler(async () =>
@@ -2316,7 +2475,7 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
-            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd,
+            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd, mergeMemoryCmd, resetMemoryCmd, copySectionCmd, swapSectionCmd,
             summarizeCmd, convStatsCmd,
             convCharCountCmd, summaryCountCmd, compressConvCmd,
             clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
@@ -2338,7 +2497,7 @@ class Program
             appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, exportConvCmd, deleteConvMsgCmd,
+            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, listConvCmd, conversationAtCmd, deleteBeforeCmd, deleteAfterCmd, deleteContainsCmd, reverseConvCmd, exportConvCmd, deleteConvMsgCmd,
             latestSummaryCmd, summaryInfoCmd, deleteSummaryRangeCmd,
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,
