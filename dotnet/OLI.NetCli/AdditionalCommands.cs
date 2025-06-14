@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Diagnostics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -182,6 +183,131 @@ public static class AdditionalCommands
             }
         });
 
+        // set-log-level
+        var levelArg = new Argument<string>("level");
+        var setLog = new Command("set-log-level", "Set log verbosity") { levelArg };
+        setLog.SetHandler(async (string level) =>
+        {
+            var state = Program.LoadState();
+            state.LogLevel = level;
+            Program.SaveState(state);
+            Console.WriteLine($"level set to {level}");
+            await Task.CompletedTask;
+        }, levelArg);
+
+        // show-log
+        var linesOpt = new Option<int>("--lines", () => 20, "Number of lines to show");
+        var showLog = new Command("show-log", "Display log file") { linesOpt };
+        showLog.SetHandler(async (int lines) =>
+        {
+            Console.WriteLine(Program.ReadLog(lines));
+            await Task.CompletedTask;
+        }, linesOpt);
+
+        // clear-log
+        var clearLog = new Command("clear-log", "Clear log file");
+        clearLog.SetHandler(async () =>
+        {
+            Program.ClearLog();
+            Console.WriteLine("log cleared");
+            await Task.CompletedTask;
+        });
+
+        // search-tasks
+        var queryArg = new Argument<string>("query");
+        var searchTasks = new Command("search-tasks", "Search tasks by description") { queryArg };
+        searchTasks.SetHandler(async (string query) =>
+        {
+            var state = Program.LoadState();
+            var matches = state.Tasks.Where(t => t.Description.Contains(query, StringComparison.OrdinalIgnoreCase));
+            foreach (var t in matches) Console.WriteLine($"{t.Id} {t.Description} ({t.Status})");
+            await Task.CompletedTask;
+        }, queryArg);
+
+        // task-history
+        var taskHistory = new Command("task-history", "List tasks chronologically");
+        taskHistory.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.OrderBy(t => t.CreatedAt))
+                Console.WriteLine($"{t.CreatedAt:u} {t.Id} {t.Status} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // dedupe-conversation
+        var dedupeConv = new Command("dedupe-conversation", "Remove consecutive duplicate messages");
+        dedupeConv.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var deduped = new List<string>();
+            string? last = null;
+            foreach (var line in state.Conversation)
+            {
+                if (line != last) deduped.Add(line);
+                last = line;
+            }
+            state.Conversation = deduped;
+            Program.SaveState(state);
+            Console.WriteLine("deduplicated");
+            await Task.CompletedTask;
+        });
+
+        // export-memory-section
+        var sectionArg = new Argument<string>("section");
+        var outArg = new Argument<string>("path");
+        var exportSection = new Command("export-memory-section", "Export a memory section") { sectionArg, outArg };
+        exportSection.SetHandler(async (string section, string path) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) return;
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            var sb = new StringBuilder();
+            bool capture = false;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## "))
+                {
+                    capture = line.TrimStart('#', ' ').StartsWith(section);
+                    continue;
+                }
+                if (capture) sb.AppendLine(line);
+            }
+            await File.WriteAllTextAsync(path, sb.ToString());
+        }, sectionArg, outArg);
+
+        // import-memory-section
+        var importSection = new Command("import-memory-section", "Append section from file") { sectionArg, outArg };
+        importSection.SetHandler(async (string section, string path) =>
+        {
+            var content = File.Exists(path) ? File.ReadAllText(path) : string.Empty;
+            var sb = new StringBuilder();
+            sb.AppendLine($"## {section}");
+            sb.AppendLine(content);
+            File.AppendAllText(Program.MemoryPath, sb.ToString());
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, sectionArg, outArg);
+
+        // open-memory
+        var openMemory = new Command("open-memory", "Open memory file in editor");
+        openMemory.SetHandler(async () =>
+        {
+            var process = new System.Diagnostics.Process();
+            process.StartInfo.FileName = "xdg-open";
+            process.StartInfo.ArgumentList.Add(Program.MemoryPath);
+            process.Start();
+            await Task.CompletedTask;
+        });
+
+        // list-memory-keys
+        var listKeys = new Command("list-memory-keys", "List memory section headings");
+        listKeys.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) return;
+            foreach (var line in File.ReadLines(Program.MemoryPath))
+                if (line.StartsWith("## ")) Console.WriteLine(line.TrimStart('#', ' '));
+            await Task.CompletedTask;
+        });
+
         root.Add(listCmd);
         root.Add(fileWritable);
         root.Add(dirWritable);
@@ -193,5 +319,15 @@ public static class AdditionalCommands
         root.Add(reopenTask);
         root.Add(convToHtml);
         root.Add(rpcEvents);
+        root.Add(setLog);
+        root.Add(showLog);
+        root.Add(clearLog);
+        root.Add(searchTasks);
+        root.Add(taskHistory);
+        root.Add(dedupeConv);
+        root.Add(exportSection);
+        root.Add(importSection);
+        root.Add(openMemory);
+        root.Add(listKeys);
     }
 }

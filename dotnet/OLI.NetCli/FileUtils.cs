@@ -7,7 +7,7 @@ public static class FileUtils
     {
         if (!File.Exists(path))
         {
-            using File.Create(path) { }
+            using var _ = File.Create(path);
         }
         else
         {

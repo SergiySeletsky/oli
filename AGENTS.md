@@ -122,6 +122,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added memory utilities `memory-stats` and `memory-unique-words`.
 - Added conversation export `conversation-to-html` and RPC event viewer `rpc-events`.
 - Added command listing via `list-commands`.
+- Added logging commands `set-log-level`, `show-log`, and `clear-log`.
+- Added task utilities `search-tasks` and `task-history`.
+- Added conversation command `dedupe-conversation`.
+- Added memory section commands `export-memory-section`, `import-memory-section`, `open-memory`, and `list-memory-keys`.
+- Persisted log level in `AppState`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

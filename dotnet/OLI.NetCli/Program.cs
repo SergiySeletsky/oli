@@ -22,6 +22,7 @@ class Program
     static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
     public static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
     static readonly string LspPath = Path.Combine(AppContext.BaseDirectory, "lsp.json");
+    static readonly string LogPath = Path.Combine(AppContext.BaseDirectory, "oli.log");
 
     static List<TaskRecord> LoadTasks()
     {
@@ -76,6 +77,23 @@ class Program
     static void SaveLspServers(List<LspServerInfo> servers)
     {
         File.WriteAllText(LspPath, JsonSerializer.Serialize(servers, new JsonSerializerOptions { WriteIndented = true }));
+    }
+
+    public static void Log(string message)
+    {
+        File.AppendAllText(LogPath, $"{DateTime.UtcNow:o} {message}\n");
+    }
+
+    public static string ReadLog(int lines)
+    {
+        if (!File.Exists(LogPath)) return string.Empty;
+        var all = File.ReadAllLines(LogPath);
+        return string.Join('\n', all.TakeLast(lines));
+    }
+
+    public static void ClearLog()
+    {
+        if (File.Exists(LogPath)) File.WriteAllText(LogPath, string.Empty);
     }
 
     static List<string> LoadConversation()
@@ -2138,6 +2156,7 @@ class Program
             await Task.CompletedTask;
         }, readPathOption);
 
+        var dirPathOption = new Option<string>("--path", () => ".");
         var copyDirDestOpt = new Option<string>("--dest") { IsRequired = true };
         var copyDirCmd = new Command("copy-directory", "Copy directory recursively") { dirPathOption, copyDirDestOpt };
         copyDirCmd.SetHandler(async (string path, string dest) =>
@@ -2180,7 +2199,6 @@ class Program
             await Task.CompletedTask;
         }, dirPathOption, renameDirNameOpt);
 
-        var dirPathOption = new Option<string>("--path", () => ".");
         var listDirCmd = new Command("list-directory", "List directory contents") { dirPathOption };
         listDirCmd.SetHandler(async (string path) =>
         {
@@ -2885,7 +2903,7 @@ class Program
         return root.Invoke(args);
     }
 
-    static string GenerateDiff(string oldContent, string newContent)
+    public static string GenerateDiff(string oldContent, string newContent)
     {
         var oldLines = oldContent.Split('\n');
         var newLines = newContent.Split('\n');

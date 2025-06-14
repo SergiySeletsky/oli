@@ -30,6 +30,6 @@ public static class JsonUtils
         var prettyB = ReadPretty(pathB);
         var linesA = prettyA.Split('\n');
         var linesB = prettyB.Split('\n');
-        return Program.GenerateDiff(linesA, linesB);
+        return Program.GenerateDiff(string.Join('\n', linesA), string.Join('\n', linesB));
     }
 }
