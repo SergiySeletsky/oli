@@ -15,4 +15,5 @@ public class AppState
     public int CompressCharThreshold { get; set; } = 4000;
     public int CompressMessageThreshold { get; set; } = 50;
     public string WorkingDirectory { get; set; } = Directory.GetCurrentDirectory();
+    public List<LspServerInfo> LspServers { get; set; } = new();
 }

@@ -99,6 +99,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation commands `conversation-first`, `conversation-range`, and `conversation-info`.
 - Added file helpers `list-directory-recursive`, `head-file`, `tail-file`, and `file-size`.
 - Moved `TaskRecord` and `AppState` definitions into separate files for better organization.
+- Added LSP management commands `lsp-start`, `lsp-stop`, `lsp-stop-all`, `lsp-list`, and `lsp-info`.
+- Added LSP utilities `lsp-symbols`, `lsp-codelens`, `lsp-semantic-tokens`, `lsp-definition`, and `lsp-workspace-root`.
+- Introduced `LspServerInfo` model and persisted servers in `lsp.json`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
@@ -109,7 +112,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Replace basic diff implementation with a robust algorithm and hook up LLM
   summarization for conversation utilities.
 - Improve search commands to respect ignore files and binary detection.
-- Begin porting LSP-based code intelligence features.
+- Continue porting LSP-based code intelligence features.
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
 - Hook up automatic conversation compression to LLM summarization.
 - Implement RPC-based event streaming for subscriptions in the .NET CLI.
