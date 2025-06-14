@@ -1206,6 +1206,110 @@ public static class AdditionalCommands
         root.Add(dueSoonCmd);
         root.Add(overdueCmd);
 
+        // search-memory
+        var memQueryArg = new Argument<string>("query");
+        var memIgnoreOpt = new Option<bool>("--ignore-case", "Case insensitive");
+        var searchMemCmd = new Command("search-memory", "Search memory file") { memQueryArg, memIgnoreOpt };
+        searchMemCmd.SetHandler(async (string query, bool ic) =>
+        {
+            if (!File.Exists(Program.MemoryPath))
+            {
+                Console.WriteLine("No memory file");
+                return;
+            }
+            var comp = ic ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            foreach (var (line, idx) in File.ReadAllLines(Program.MemoryPath).Select((l, i) => (l, i + 1)))
+                if (line.IndexOf(query, comp) >= 0)
+                    Console.WriteLine($"{idx}:{line}");
+            await Task.CompletedTask;
+        }, memQueryArg, memIgnoreOpt);
+
+        // conversation-exists
+        var convExistsCmd = new Command("conversation-exists", "Does conversation file exist?");
+        convExistsCmd.SetHandler(async () =>
+        {
+            Console.WriteLine(File.Exists(Program.ConversationPath) ? "true" : "false");
+            await Task.CompletedTask;
+        });
+
+        // conversation-has
+        var convHasArg = new Argument<string>("query");
+        var convHasCmd = new Command("conversation-has", "Check if conversation contains text") { convHasArg };
+        convHasCmd.SetHandler(async (string query) =>
+        {
+            var lines = Program.LoadState().Conversation;
+            bool found = lines.Any(l => l.Contains(query, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine(found ? "true" : "false");
+            await Task.CompletedTask;
+        }, convHasArg);
+
+        // tasks-failed
+        var tasksFailedCmd = new Command("tasks-failed", "List failed tasks");
+        tasksFailedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "Failed"))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // task-status-counts
+        var statusCountsCmd = new Command("task-status-counts", "Show task counts by status");
+        statusCountsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var groups = state.Tasks.GroupBy(t => t.Status).Select(g => $"{g.Key}:{g.Count()}");
+            foreach (var g in groups) Console.WriteLine(g);
+            await Task.CompletedTask;
+        });
+
+        // memory-sort-lines
+        var sortLinesCmd = new Command("memory-sort-lines", "Sort memory file lines alphabetically");
+        sortLinesCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath))
+            {
+                Console.WriteLine("No memory file");
+                return;
+            }
+            var sorted = File.ReadAllLines(Program.MemoryPath).OrderBy(l => l).ToArray();
+            File.WriteAllLines(Program.MemoryPath, sorted);
+            Console.WriteLine("sorted");
+            await Task.CompletedTask;
+        });
+
+        // remove-empty-conversation
+        var removeEmptyCmd = new Command("remove-empty-conversation", "Delete blank conversation lines");
+        removeEmptyCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.Conversation = state.Conversation.Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+            Program.SaveState(state);
+            Console.WriteLine("removed");
+            await Task.CompletedTask;
+        });
+
+        // tasks-recent
+        var recentDaysOpt = new Option<int>("--days", () => 1, "Look back N days");
+        var tasksRecentCmd = new Command("tasks-recent", "List recent tasks") { recentDaysOpt };
+        tasksRecentCmd.SetHandler(async (int days) =>
+        {
+            var state = Program.LoadState();
+            var cutoff = DateTime.UtcNow.AddDays(-days);
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt >= cutoff))
+                Console.WriteLine($"{t.Id} {t.Description} {t.CreatedAt:u}");
+            await Task.CompletedTask;
+        }, recentDaysOpt);
+
+        root.Add(searchMemCmd);
+        root.Add(convExistsCmd);
+        root.Add(convHasCmd);
+        root.Add(tasksFailedCmd);
+        root.Add(statusCountsCmd);
+        root.Add(sortLinesCmd);
+        root.Add(removeEmptyCmd);
+        root.Add(tasksRecentCmd);
+
         // conversation-move
         var moveFromOpt = new Option<int>("--from") { IsRequired = true };
         var moveToOpt = new Option<int>("--to") { IsRequired = true };

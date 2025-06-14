@@ -159,6 +159,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added network helpers `download-file` and `upload-file` for HTTP transfers.
 - Introduced log utilities `open-log`, `rotate-log`, and `log-size`.
 - Added path helpers `open-tasks` and `open-conversation` to quickly open state files.
+- Added memory search command `search-memory` with `--ignore-case` option.
+- Added conversation utilities `conversation-exists`, `conversation-has`, and `remove-empty-conversation`.
+- Added task helpers `tasks-failed`, `task-status-counts`, and `tasks-recent`.
+- Added `memory-sort-lines` to alphabetize memory file content.
+- Added path helpers `open-summaries` and `open-lsp` for quick file access.
 - Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.

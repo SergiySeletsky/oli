@@ -10,10 +10,12 @@ public static class ApiKeyCommands
     public static void Register(RootCommand root)
     {
         // set-api-key
+        var providerOpt = new Option<string>("--provider", "Provider name") { IsRequired = true };
+        var keyOpt = new Option<string>("--key", "API key") { IsRequired = true };
         var setCmd = new Command("set-api-key", "Store API key for provider")
         {
-            new Option<string>("--provider", description: "Provider name"),
-            new Option<string>("--key", description: "API key")
+            providerOpt,
+            keyOpt
         };
         setCmd.SetHandler((string provider, string key) =>
         {
@@ -21,7 +23,7 @@ public static class ApiKeyCommands
             File.WriteAllText(ApiKeyFile, data);
             Console.WriteLine("API key saved.");
             return Task.CompletedTask;
-        }, setCmd.Arguments[0], setCmd.Arguments[1]);
+        }, providerOpt, keyOpt);
 
         // get-api-key
         var getCmd = new Command("get-api-key", "Show stored API key");

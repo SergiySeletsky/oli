@@ -11,23 +11,27 @@ public static class NetworkCommands
     public static void Register(RootCommand root)
     {
         // download-file
+        var dlUrlOpt = new Option<string>("--url", "Source URL") { IsRequired = true };
+        var dlOutOpt = new Option<string>("--out", "Destination path") { IsRequired = true };
         var dlCmd = new Command("download-file", "Download file from URL")
         {
-            new Option<string>("--url", description: "Source URL"),
-            new Option<string>("--out", description: "Destination path")
+            dlUrlOpt,
+            dlOutOpt
         };
         dlCmd.SetHandler(async (string url, string path) =>
         {
             var data = await Client.GetByteArrayAsync(url);
             await File.WriteAllBytesAsync(path, data);
             Console.WriteLine($"Downloaded to {path}");
-        }, dlCmd.Arguments[0], dlCmd.Arguments[1]);
+        }, dlUrlOpt, dlOutOpt);
 
         // upload-file
+        var upUrlOpt = new Option<string>("--url", "Destination URL") { IsRequired = true };
+        var upFileOpt = new Option<string>("--file", "File path") { IsRequired = true };
         var upCmd = new Command("upload-file", "POST file to URL")
         {
-            new Option<string>("--url", description: "Destination URL"),
-            new Option<string>("--file", description: "File path")
+            upUrlOpt,
+            upFileOpt
         };
         upCmd.SetHandler(async (string url, string file) =>
         {
@@ -35,7 +39,7 @@ public static class NetworkCommands
             content.Add(new ByteArrayContent(await File.ReadAllBytesAsync(file)), "file", Path.GetFileName(file));
             var res = await Client.PostAsync(url, content);
             Console.WriteLine($"Status: {res.StatusCode}");
-        }, upCmd.Arguments[0], upCmd.Arguments[1]);
+        }, upUrlOpt, upFileOpt);
 
         root.Add(dlCmd);
         root.Add(upCmd);

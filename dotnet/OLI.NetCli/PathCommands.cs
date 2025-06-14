@@ -24,7 +24,25 @@ public static class PathCommands
             return Task.CompletedTask;
         });
 
+        // open-summaries
+        var openSums = new Command("open-summaries", "Open summaries.json");
+        openSums.SetHandler(() =>
+        {
+            Process.Start("xdg-open", Program.SummariesPath);
+            return Task.CompletedTask;
+        });
+
+        // open-lsp
+        var openLsp = new Command("open-lsp", "Open lsp.json");
+        openLsp.SetHandler(() =>
+        {
+            Process.Start("xdg-open", Program.LspPath);
+            return Task.CompletedTask;
+        });
+
         root.Add(openTasks);
         root.Add(openConv);
+        root.Add(openSums);
+        root.Add(openLsp);
     }
 }
