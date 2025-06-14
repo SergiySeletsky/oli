@@ -34,7 +34,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 3. Integrate LLM capabilities using packages like [AutoGen.NET](https://github.com/microsoft/autogen) or [Semantic Kernel](https://github.com/microsoft/semantic-kernel).
 4. Achieve feature parity with the Rust CLI before deprecating it.
 5. Migrate features incrementally, implementing at least ten per agent run and recording progress here.
-6. Track ported files: `Program.cs`, `ConversationSummary.cs`, `ToolExecution.cs`, and `LspCommands.cs` are largely complete.
+6. Track ported files: `Program.cs`, `ConversationSummary.cs`, `ToolExecution.cs`, and `LspCommands.cs` are largely complete. New helper modules `ApiKeyCommands.cs`, `NetworkCommands.cs`, `LogCommands.cs`, and `PathCommands.cs` house additional commands.
 
 ### Accomplished
 - Created the `dotnet/OLI.NetCli` project with `run`, `agent-mode`, and `models` commands.
@@ -155,6 +155,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `tasks-due-soon`, and `tasks-overdue`.
 - Added file compression utilities `compress-log`, `compress-file`, and
   `decompress-file`.
+- Added API key management commands `set-api-key`, `get-api-key`, and `clear-api-key`.
+- Added network helpers `download-file` and `upload-file` for HTTP transfers.
+- Introduced log utilities `open-log`, `rotate-log`, and `log-size`.
+- Added path helpers `open-tasks` and `open-conversation` to quickly open state files.
 - Added conversation utilities `conversation-replace`, `conversation-move`, and `conversation-role-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.

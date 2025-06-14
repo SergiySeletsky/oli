@@ -2797,6 +2797,10 @@ class Program
 
         LspCommands.Register(root);
         AdditionalCommands.Register(root);
+        ApiKeyCommands.Register(root);
+        NetworkCommands.Register(root);
+        LogCommands.Register(root);
+        PathCommands.Register(root);
 
         return root.Invoke(args);
     }
