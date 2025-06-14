@@ -1470,6 +1470,119 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // clear-completed-tools
+        var clearCompletedToolsCmd = new Command("clear-completed-tools", "Remove completed tool executions");
+        clearCompletedToolsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.ToolExecutions.RemoveAll(t => t.Status != "running");
+            Program.SaveState(state);
+            Console.WriteLine("completed tools cleared");
+            await Task.CompletedTask;
+        });
+
+        // tool-duration
+        var toolDurationId = new Argument<string>("id");
+        var toolDurationCmd = new Command("tool-duration", "Show tool execution duration") { toolDurationId };
+        toolDurationCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            if (tool == null) { Console.WriteLine("not found"); return; }
+            var end = tool.EndTime ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var dur = (end - tool.StartTime) / 1000.0;
+            Console.WriteLine(dur.ToString("F1"));
+            await Task.CompletedTask;
+        }, toolDurationId);
+
+        // tools-by-status
+        var toolsStatusArg = new Argument<string>("status");
+        var toolsByStatusCmd = new Command("tools-by-status", "List tools with status") { toolsStatusArg };
+        toolsByStatusCmd.SetHandler(async (string status) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions.Where(te => te.Status == status))
+                Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        }, toolsStatusArg);
+
+        // tool-exists
+        var toolExistsId = new Argument<string>("id");
+        var toolExistsCmd = new Command("tool-exists", "Check if tool id exists") { toolExistsId };
+        toolExistsCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Any(t => t.Id == id) ? "true" : "false");
+            await Task.CompletedTask;
+        }, toolExistsId);
+
+        // latest-tool
+        var latestToolCmd = new Command("latest-tool", "Show most recently started tool");
+        latestToolCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.OrderByDescending(t => t.StartTime).FirstOrDefault();
+            Console.WriteLine(tool != null ? tool.Id : "none");
+            await Task.CompletedTask;
+        });
+
+        // tool-age
+        var toolAgeId = new Argument<string>("id");
+        var toolAgeCmd = new Command("tool-age", "Age of tool in seconds") { toolAgeId };
+        toolAgeCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            if (tool == null) { Console.WriteLine("not found"); return; }
+            var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            var age = (now - tool.StartTime) / 1000.0;
+            Console.WriteLine(age.ToString("F1"));
+            await Task.CompletedTask;
+        }, toolAgeId);
+
+        // tools-recent
+        var recentMinutesOpt = new Option<int>("--minutes", () => 60);
+        var toolsRecentCmd = new Command("tools-recent", "List tools started within minutes") { recentMinutesOpt };
+        toolsRecentCmd.SetHandler(async (int minutes) =>
+        {
+            var state = Program.LoadState();
+            var cutoff = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() - minutes * 60_000L;
+            foreach (var t in state.ToolExecutions.Where(te => te.StartTime >= cutoff))
+                Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        }, recentMinutesOpt);
+
+        // running-tool-count
+        var runningToolCountCmd = new Command("running-tool-count", "Number of running tools");
+        runningToolCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Count(t => t.Status == "running"));
+            await Task.CompletedTask;
+        });
+
+        // tools-by-name
+        var toolsNameArg = new Argument<string>("name");
+        var toolsByNameCmd = new Command("tools-by-name", "List tools by name") { toolsNameArg };
+        toolsByNameCmd.SetHandler(async (string name) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions.Where(te => te.Name == name))
+                Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        }, toolsNameArg);
+
+        // tool-count-by-name
+        var toolCountByNameCmd = new Command("tool-count-by-name", "Count tools grouped by name");
+        toolCountByNameCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var groups = state.ToolExecutions.GroupBy(t => t.Name).Select(g => new { g.Key, Count = g.Count() });
+            foreach (var g in groups.OrderByDescending(g => g.Count))
+                Console.WriteLine($"{g.Key}:{g.Count}");
+            await Task.CompletedTask;
+        });
+
         // backup-path
         var backupPathCmd = new Command("backup-path", "Show backup directory");
         backupPathCmd.SetHandler(async () =>
@@ -1514,6 +1627,16 @@ public static class AdditionalCommands
         root.Add(exportToolCmd);
         root.Add(importToolCmd);
         root.Add(clearToolsCmd);
+        root.Add(clearCompletedToolsCmd);
+        root.Add(toolDurationCmd);
+        root.Add(toolsByStatusCmd);
+        root.Add(toolExistsCmd);
+        root.Add(latestToolCmd);
+        root.Add(toolAgeCmd);
+        root.Add(toolsRecentCmd);
+        root.Add(runningToolCountCmd);
+        root.Add(toolsByNameCmd);
+        root.Add(toolCountByNameCmd);
         root.Add(backupPathCmd);
         root.Add(openBackupsCmd);
         root.Add(trimLogCmd);

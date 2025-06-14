@@ -195,6 +195,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.
+- Added tool commands `clear-completed-tools`, `tool-duration`, `tools-by-status`,
+  `tool-exists`, `latest-tool`, `tool-age`, `tools-recent`, `running-tool-count`,
+  `tools-by-name`, and `tool-count-by-name`.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.
