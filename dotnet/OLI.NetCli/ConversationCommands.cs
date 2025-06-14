@@ -61,39 +61,37 @@ public static class ConversationCommands
         // import-conversation
         var importPathOpt = new Option<string>("--path") { IsRequired = true };
         var importConv = new Command("import-conversation", "Load conversation from file") { importPathOpt };
-        importConv.SetHandler((string path) =>
+        importConv.SetHandler(async (string path) =>
         {
             if (!File.Exists(path))
             {
                 Console.WriteLine("File not found");
-                return Task.CompletedTask;
+                return;
             }
             var lines = File.ReadAllLines(path).ToList();
             var state = Program.LoadState();
             state.Conversation = lines;
-            Program.AutoCompress(state);
+            await Program.AutoCompress(state);
             Program.SaveState(state);
             Console.WriteLine("Conversation loaded");
-            return Task.CompletedTask;
         }, importPathOpt);
 
         // append-conversation
         var appendPathOpt = new Option<string>("--path") { IsRequired = true };
         var appendConv = new Command("append-conversation", "Append messages from file to conversation") { appendPathOpt };
-        appendConv.SetHandler((string path) =>
+        appendConv.SetHandler(async (string path) =>
         {
             if (!File.Exists(path))
             {
                 Console.WriteLine("File not found");
-                return Task.CompletedTask;
+                return;
             }
             var lines = File.ReadAllLines(path);
             var state = Program.LoadState();
             state.Conversation.AddRange(lines);
-            Program.AutoCompress(state);
+            await Program.AutoCompress(state);
             Program.SaveState(state);
             Console.WriteLine("Conversation updated");
-            return Task.CompletedTask;
         }, appendPathOpt);
 
         // delete-conversation-message
@@ -129,7 +127,7 @@ public static class ConversationCommands
             string summary;
             try
             {
-                summary = await Program.SummarizeAsync(text);
+                summary = await KernelUtils.SummarizeAsync(text);
             }
             catch
             {
@@ -184,7 +182,7 @@ public static class ConversationCommands
             string summary;
             try
             {
-                summary = await Program.SummarizeAsync(text);
+                summary = await KernelUtils.SummarizeAsync(text);
             }
             catch
             {

@@ -7,6 +7,8 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using DiffPlex.DiffBuilder;
+using DiffPlex.DiffBuilder.Model;
 
 // Local utilities
 using static FileUtils;
@@ -134,12 +136,16 @@ class Program
             var state = LoadState();
             state.SelectedModel = modelIndex;
             state.Conversation.Add($"User: {prompt}");
-            AutoCompress(state);
+            await AutoCompress(state);
             SaveState(state);
             Console.WriteLine($"[Model {modelIndex}] Prompt: {prompt}");
             try
             {
-                var reply = await CompleteAsync(prompt);
+                var history = string.Join("\n", state.Conversation);
+                var fullPrompt = string.IsNullOrWhiteSpace(history)
+                    ? prompt
+                    : $"{history}\nUser: {prompt}\nAssistant:";
+                var reply = await CompleteAsync(fullPrompt);
                 state.Conversation.Add($"Assistant: {reply}");
                 SaveState(state);
                 Console.WriteLine(reply);
@@ -853,6 +859,63 @@ class Program
             await Task.CompletedTask;
         }, eventOption);
 
+        var subscriptionsCmd = new Command("subscriptions", "List active subscriptions");
+        subscriptionsCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            foreach (var s in state.Subscriptions) Console.WriteLine(s);
+            await Task.CompletedTask;
+        });
+
+        var subscriptionCountCmd = new Command("subscription-count", "Show subscription total");
+        subscriptionCountCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            Console.WriteLine(state.Subscriptions.Count);
+            await Task.CompletedTask;
+        });
+
+        var rpcStartCmd = new Command("rpc-start", "Start RPC server");
+        rpcStartCmd.SetHandler(async () => { RpcServer.Start(); Console.WriteLine("started"); await Task.CompletedTask; });
+
+        var rpcStopCmd = new Command("rpc-stop", "Stop RPC server");
+        rpcStopCmd.SetHandler(async () => { RpcServer.Stop(); Console.WriteLine("stopped"); await Task.CompletedTask; });
+
+        var rpcStatusCmd = new Command("rpc-status", "Is RPC server running?");
+        rpcStatusCmd.SetHandler(async () => { Console.WriteLine(RpcServer.IsRunning ? "running" : "stopped"); await Task.CompletedTask; });
+
+        var rpcNotifyJsonOpt = new Option<string>("--json") { IsRequired = true };
+        var rpcNotifyTypeOpt = new Option<string>("--type", () => "manual");
+        var rpcNotifyCmd = new Command("rpc-notify", "Send JSON event") { rpcNotifyJsonOpt, rpcNotifyTypeOpt };
+        rpcNotifyCmd.SetHandler(async (string json, string type) =>
+        {
+            try
+            {
+                var obj = JsonSerializer.Deserialize<object>(json);
+                if (obj != null) RpcServer.Notify(obj, type);
+                Console.WriteLine("sent");
+            }
+            catch { Console.WriteLine("invalid json"); }
+            await Task.CompletedTask;
+        }, rpcNotifyJsonOpt, rpcNotifyTypeOpt);
+
+        var rpcNotifyFileOpt = new Option<string>("--path") { IsRequired = true };
+        var rpcNotifyFileTypeOpt = new Option<string>("--type", () => "manual");
+        var rpcNotifyFileCmd = new Command("rpc-notify-file", "Send JSON event from file") { rpcNotifyFileOpt, rpcNotifyFileTypeOpt };
+        rpcNotifyFileCmd.SetHandler(async (string path, string type) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = File.ReadAllText(path);
+            try
+            {
+                var obj = JsonSerializer.Deserialize<object>(json);
+                if (obj != null) RpcServer.Notify(obj, type);
+                Console.WriteLine("sent");
+            }
+            catch { Console.WriteLine("invalid json"); }
+            await Task.CompletedTask;
+        }, rpcNotifyFileOpt, rpcNotifyFileTypeOpt);
+
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -864,13 +927,13 @@ class Program
             versionCmd,
             subscribeCmd,
             unsubscribeCmd,
+            subscriptionsCmd,
             subscriptionCountCmd,
-            deleteSummaryRangeCmd,
-            runCommandCmd,
             rpcStartCmd,
             rpcStopCmd,
             rpcStatusCmd,
-            rpcNotifyCmd
+            rpcNotifyCmd,
+            rpcNotifyFileCmd
         };
 
         LspCommands.Register(root);
@@ -893,24 +956,17 @@ class Program
 
     public static string GenerateDiff(string oldContent, string newContent)
     {
-        var oldLines = oldContent.Split('\n');
-        var newLines = newContent.Split('\n');
-        var max = Math.Max(oldLines.Length, newLines.Length);
-        var diff = new List<string>();
-        for (int i = 0; i < max; i++)
+        var diff = InlineDiffBuilder.Diff(oldContent, newContent);
+        var sb = new System.Text.StringBuilder();
+        foreach (var line in diff.Lines)
         {
-            var oldLine = i < oldLines.Length ? oldLines[i] : string.Empty;
-            var newLine = i < newLines.Length ? newLines[i] : string.Empty;
-            if (oldLine != newLine)
-            {
-                if (!string.IsNullOrEmpty(oldLine)) diff.Add($"- {oldLine}");
-                if (!string.IsNullOrEmpty(newLine)) diff.Add($"+ {newLine}");
-            }
+            if (line.Type == ChangeType.Inserted) sb.AppendLine($"+ {line.Text}");
+            else if (line.Type == ChangeType.Deleted) sb.AppendLine($"- {line.Text}");
         }
-        return string.Join('\n', diff);
+        return sb.ToString();
     }
 
-    static async void AutoCompress(AppState state)
+    public static async Task AutoCompress(AppState state)
     {
         if (!state.AutoCompress) return;
         var charCount = state.Conversation.Sum(m => m.Length);
@@ -937,12 +993,12 @@ class Program
         }
     }
 
-    static int EstimateTokens(string text)
+    public static int EstimateTokens(string text)
     {
         return text.Length / 4 + 1;
     }
 
-    static (string? FilePath, int? Lines) ExtractToolMetadata(string message)
+    public static (string? FilePath, int? Lines) ExtractToolMetadata(string message)
     {
         string? filePath = null;
         int? lines = null;
@@ -953,7 +1009,7 @@ class Program
         return (filePath, lines);
     }
 
-    static string ToolDescription(string name, string? filePath, int? lines)
+    public static string ToolDescription(string name, string? filePath, int? lines)
     {
         return name switch
         {
@@ -968,12 +1024,12 @@ class Program
         };
     }
 
-    static bool ValidateApiKey(string modelName, string apiKey)
+    public static bool ValidateApiKey(string modelName, string apiKey)
     {
         return !(string.IsNullOrEmpty(apiKey) && !modelName.ToLower().Contains("local"));
     }
 
-    static (string Provider, string AgentModel) DetermineProvider(string modelName, string apiKey, string modelFile)
+    public static (string Provider, string AgentModel) DetermineProvider(string modelName, string apiKey, string modelFile)
     {
         var lower = modelName.ToLower();
         string provider = lower.Contains("claude") ? "Anthropic" : lower.Contains("gpt") ? "OpenAI" : lower.Contains("gemini") ? "Gemini" : "Ollama";
@@ -987,7 +1043,7 @@ class Program
         return (provider, agentModel);
     }
 
-    static List<string> DisplayToSession(IEnumerable<string> display)
+    public static List<string> DisplayToSession(IEnumerable<string> display)
     {
         var result = new List<string>();
         string role = "user";
@@ -1003,7 +1059,7 @@ class Program
         return result;
     }
 
-    static List<string> SessionToDisplay(IEnumerable<string> session)
+    public static List<string> SessionToDisplay(IEnumerable<string> session)
     {
         return session.Select(s =>
         {
@@ -1027,5 +1083,3 @@ class Program
     }
 
 }
-
-

@@ -341,6 +341,18 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, deletePatternOpt);
 
+        // memory-dedupe-lines
+        var memoryDedupeCmd = new Command("memory-dedupe-lines", "Remove duplicate lines in memory");
+        memoryDedupeCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file found"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            var deduped = lines.Distinct().ToArray();
+            File.WriteAllLines(Program.MemoryPath, deduped);
+            Console.WriteLine(lines.Length - deduped.Length);
+            await Task.CompletedTask;
+        });
+
         // delete-memory-section
         var deleteSectionOption = new Option<string>("--section") { IsRequired = true };
         var deleteMemorySectionCmd = new Command("delete-memory-section", "Remove a memory section") { deleteSectionOption };
@@ -400,6 +412,7 @@ public static class MemoryCommands
         root.AddCommand(memorySizeCmd);
         root.AddCommand(searchMemoryCmd);
         root.AddCommand(deleteMemoryLineCmd);
+        root.AddCommand(memoryDedupeCmd);
         root.AddCommand(deleteMemorySectionCmd);
         root.AddCommand(listMemorySectionsCmd);
     }
