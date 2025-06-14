@@ -252,6 +252,15 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `delete-conversation-contains`, `reverse-conversation`, and `conversation-diff`.
 - Added `tasks-by-priority`, `open-latest-backup`, `rpc-notify-file`, and
   `memory-dedupe-lines` commands.
+- Added LSP utilities `export-lsp`, `import-lsp`, and `lsp-count`.
+- Introduced conversation helpers `conversation-last`, `conversation-search`,
+  `conversation-length`, and `delete-conversation-range`.
+- Added memory helper `memory-section-exists`.
+- Implemented task utilities `tasks-due-today`, `tasks-due-next-week`,
+  `tasks-this-month`, `pause-task`, `resume-task`, `pause-all-tasks`,
+  `resume-all-tasks`, `tasks-paused`, `tasks-created-before`,
+  `tasks-created-after`, `archive-task`, `unarchive-task`, `archived-tasks`,
+  and `list-task-ids`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
@@ -263,3 +272,4 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Hook up automatic conversation compression to LLM summarization.
 - Implement RPC-based event streaming for subscriptions in the .NET CLI.
 - Continue migrating commands from `Program.cs` into dedicated modules.
+- Add more task analytics and finalize parity with the Rust CLI.

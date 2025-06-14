@@ -387,6 +387,17 @@ public static class MemoryCommands
             await Task.CompletedTask;
         });
 
+        // memory-section-exists
+        var sectionExistsArg = new Argument<string>("section");
+        var sectionExistsCmd = new Command("memory-section-exists", "Check if a memory section exists") { sectionExistsArg };
+        sectionExistsCmd.SetHandler(async (string section) =>
+        {
+            bool exists = File.Exists(Program.MemoryPath) &&
+                File.ReadLines(Program.MemoryPath).Any(l => l.Trim() == $"## {section}");
+            Console.WriteLine(exists ? "true" : "false");
+            await Task.CompletedTask;
+        }, sectionExistsArg);
+
         root.AddCommand(memoryInfoCmd);
         root.AddCommand(addMemoryCmd);
         root.AddCommand(replaceMemoryCmd);
@@ -415,5 +426,6 @@ public static class MemoryCommands
         root.AddCommand(memoryDedupeCmd);
         root.AddCommand(deleteMemorySectionCmd);
         root.AddCommand(listMemorySectionsCmd);
+        root.AddCommand(sectionExistsCmd);
     }
 }

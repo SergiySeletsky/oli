@@ -256,6 +256,8 @@ public static class AdditionalCommands
                 Console.WriteLine("task not found");
             }
             await Task.CompletedTask;
+        }, idArg, priorityArg);
+
         // set-task-due
         var dueOpt = new Option<string>("--due") { IsRequired = true };
         var setDueCmd = new Command("set-task-due", "Set due date for a task") { idArg, dueOpt };
@@ -415,7 +417,180 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
-        }, idArg, priorityArg);
+        // tasks-due-today
+        var tasksTodayCmd = new Command("tasks-due-today", "List tasks due today");
+        tasksTodayCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var today = DateTime.UtcNow.Date;
+            foreach (var t in state.Tasks.Where(t => t.DueDate?.Date == today))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-due-next-week
+        var tasksNextWeekCmd = new Command("tasks-due-next-week", "List tasks due in the next 7 days");
+        tasksNextWeekCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var start = DateTime.UtcNow.Date.AddDays(1);
+            var end = DateTime.UtcNow.Date.AddDays(7);
+            foreach (var t in state.Tasks.Where(t => t.DueDate != null && t.DueDate.Value.Date >= start && t.DueDate.Value.Date <= end))
+                Console.WriteLine($"{t.Id}: {t.Description} due {t.DueDate:u}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-this-month
+        var tasksThisMonthCmd = new Command("tasks-this-month", "List tasks created this month");
+        tasksThisMonthCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var start = new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt >= start))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // pause-task
+        var pauseTaskCmd = new Command("pause-task", "Pause a task") { idArg };
+        pauseTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Paused = true;
+                Program.SaveState(state);
+                Console.WriteLine("paused");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // resume-task
+        var resumeTaskCmd = new Command("resume-task", "Resume a paused task") { idArg };
+        resumeTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Paused = false;
+                Program.SaveState(state);
+                Console.WriteLine("resumed");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // pause-all-tasks
+        var pauseAllCmd = new Command("pause-all-tasks", "Pause all tasks");
+        pauseAllCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks) t.Paused = true;
+            Program.SaveState(state);
+            Console.WriteLine("paused all");
+            await Task.CompletedTask;
+        });
+
+        // resume-all-tasks
+        var resumeAllCmd = new Command("resume-all-tasks", "Resume all tasks");
+        resumeAllCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks) t.Paused = false;
+            Program.SaveState(state);
+            Console.WriteLine("resumed all");
+            await Task.CompletedTask;
+        });
+
+        // tasks-paused
+        var tasksPausedCmd = new Command("tasks-paused", "List paused tasks");
+        tasksPausedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Paused))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-created-before
+        var createdBeforeArg = new Argument<string>("date");
+        var tasksCreatedBeforeCmd = new Command("tasks-created-before", "List tasks created before date") { createdBeforeArg };
+        tasksCreatedBeforeCmd.SetHandler(async (string date) =>
+        {
+            if (!DateTime.TryParse(date, out var dt)) { Console.WriteLine("invalid date"); return; }
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt < dt))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, createdBeforeArg);
+
+        // tasks-created-after
+        var createdAfterArg = new Argument<string>("date");
+        var tasksCreatedAfterCmd = new Command("tasks-created-after", "List tasks created after date") { createdAfterArg };
+        tasksCreatedAfterCmd.SetHandler(async (string date) =>
+        {
+            if (!DateTime.TryParse(date, out var dt)) { Console.WriteLine("invalid date"); return; }
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt > dt))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, createdAfterArg);
+
+        // archive-task
+        var archiveTaskCmd = new Command("archive-task", "Archive a task") { idArg };
+        archiveTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Archived = true;
+                Program.SaveState(state);
+                Console.WriteLine("archived");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // unarchive-task
+        var unarchiveTaskCmd = new Command("unarchive-task", "Unarchive a task") { idArg };
+        unarchiveTaskCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Archived = false;
+                Program.SaveState(state);
+                Console.WriteLine("unarchived");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // archived-tasks
+        var archivedTasksCmd = new Command("archived-tasks", "List archived tasks");
+        archivedTasksCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Archived))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // list-task-ids
+        var listTaskIdsCmd = new Command("list-task-ids", "List all task IDs");
+        listTaskIdsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks) Console.WriteLine(t.Id);
+            await Task.CompletedTask;
+        });
+
+
 
         // reopen-task
         var reopenTask = new Command("reopen-task", "Reopen a completed task") { idArg };
@@ -884,6 +1059,15 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // conversation-last
+        var conversationLastCmd = new Command("conversation-last", "Show the last message");
+        conversationLastCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Conversation.Count > 0 ? state.Conversation[^1] : "none");
+            await Task.CompletedTask;
+        });
+
         // conversation-range
         var rangeStartArg = new Argument<int>("start");
         var rangeEndArg = new Argument<int>("end");
@@ -896,6 +1080,20 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, rangeStartArg, rangeEndArg);
 
+        // delete-conversation-range
+        var delRangeStartArg = new Argument<int>("start");
+        var delRangeEndArg = new Argument<int>("end");
+        var deleteConvRangeCmd = new Command("delete-conversation-range", "Delete messages in a range") { delRangeStartArg, delRangeEndArg };
+        deleteConvRangeCmd.SetHandler(async (int start, int end) =>
+        {
+            var state = Program.LoadState();
+            if (start < 0 || end < start || end >= state.Conversation.Count) { Console.WriteLine("invalid range"); return; }
+            state.Conversation.RemoveRange(start, end - start + 1);
+            Program.SaveState(state);
+            Console.WriteLine("deleted");
+            await Task.CompletedTask;
+        }, delRangeStartArg, delRangeEndArg);
+
         // conversation-info
         var conversationInfoCmd = new Command("conversation-info", "Show message and char counts");
         conversationInfoCmd.SetHandler(async () =>
@@ -905,6 +1103,27 @@ public static class AdditionalCommands
             Console.WriteLine($"messages:{state.Conversation.Count} chars:{chars}");
             await Task.CompletedTask;
         });
+
+        // conversation-length
+        var conversationLengthCmd = new Command("conversation-length", "Show number of messages");
+        conversationLengthCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Conversation.Count);
+            await Task.CompletedTask;
+        });
+
+        // conversation-search
+        var convSearchArg = new Argument<string>("text");
+        var conversationSearchCmd = new Command("conversation-search", "Search conversation for text") { convSearchArg };
+        conversationSearchCmd.SetHandler(async (string text) =>
+        {
+            var state = Program.LoadState();
+            foreach (var (line, idx) in state.Conversation.Select((l,i)=>(l,i)))
+                if (line.Contains(text, StringComparison.OrdinalIgnoreCase))
+                    Console.WriteLine($"{idx}: {line}");
+            await Task.CompletedTask;
+        }, convSearchArg);
 
         // list-conversation
         var listConversationCmd = new Command("list-conversation", "List conversation with indexes");
@@ -1459,6 +1678,10 @@ public static class AdditionalCommands
         root.Add(deleteContainsCmd);
         root.Add(reverseConvCmd);
         root.Add(conversationDiffCmd);
+        root.Add(conversationLastCmd);
+        root.Add(conversationLengthCmd);
+        root.Add(conversationSearchCmd);
+        root.Add(deleteConvRangeCmd);
         root.Add(convReplaceCmd);
         root.Add(convMoveCmd);
         root.Add(convRoleCountCmd);
@@ -1484,6 +1707,20 @@ public static class AdditionalCommands
         root.Add(convToJsonlCmd);
         root.Add(convFromJsonlCmd);
         root.Add(memLineCountCmd);
+        root.Add(tasksTodayCmd);
+        root.Add(tasksNextWeekCmd);
+        root.Add(tasksThisMonthCmd);
+        root.Add(pauseTaskCmd);
+        root.Add(resumeTaskCmd);
+        root.Add(pauseAllCmd);
+        root.Add(resumeAllCmd);
+        root.Add(tasksPausedCmd);
+        root.Add(tasksCreatedBeforeCmd);
+        root.Add(tasksCreatedAfterCmd);
+        root.Add(archiveTaskCmd);
+        root.Add(unarchiveTaskCmd);
+        root.Add(archivedTasksCmd);
+        root.Add(listTaskIdsCmd);
         root.Add(tasksWithNotesCmd);
         root.Add(tasksWithoutDueCmd);
         root.Add(tasksWithoutTagsCmd);
