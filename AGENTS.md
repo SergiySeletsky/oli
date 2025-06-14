@@ -95,6 +95,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added utility commands `estimate-tokens`, `extract-metadata`, `tool-description`,
   `has-active-tasks`, `task-statuses`, `validate-api-key`, `determine-provider`,
   `display-to-session`, `session-to-display`, and `summarize-text`.
+- Added memory commands `memory-size`, `search-memory`, and `delete-memory-lines`.
+- Added conversation commands `conversation-first`, `conversation-range`, and `conversation-info`.
+- Added file helpers `list-directory-recursive`, `head-file`, `tail-file`, and `file-size`.
+- Moved `TaskRecord` and `AppState` definitions into separate files for better organization.
 
 ### TODO for Next Run
 - Implement actual model API calls in the `run` command using AutoGen.NET or Semantic Kernel.

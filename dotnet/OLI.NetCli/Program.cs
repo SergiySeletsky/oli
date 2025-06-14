@@ -7,34 +7,6 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-public class TaskRecord
-{
-    public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string Description { get; set; } = string.Empty;
-    public string Status { get; set; } = "in-progress";
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    public int ToolCount { get; set; }
-    public int InputTokens { get; set; }
-    public int OutputTokens { get; set; }
-}
-
-public class AppState
-{
-    public bool AgentMode { get; set; }
-    public int SelectedModel { get; set; }
-    public List<string> Conversation { get; set; } = new();
-    public List<ConversationSummary> ConversationSummaries { get; set; } = new();
-    public List<TaskRecord> Tasks { get; set; } = new();
-    public string? CurrentTaskId { get; set; }
-    public List<ToolExecution> ToolExecutions { get; set; } = new();
-    public HashSet<string> Subscriptions { get; set; } = new();
-    public bool AutoCompress { get; set; } = false;
-    public int CompressCharThreshold { get; set; } = 4000;
-    public int CompressMessageThreshold { get; set; } = 50;
-    public string WorkingDirectory { get; set; } = Directory.GetCurrentDirectory();
-}
-
 class Program
 {
     static readonly string StatePath = Path.Combine(AppContext.BaseDirectory, "state.json");
@@ -903,8 +875,8 @@ class Program
             await Task.CompletedTask;
         });
 
-        var searchTextOpt = new Option<string>("--text") { IsRequired = true };
-        var convSearchCmd = new Command("conversation-search", "Search conversation for text") { searchTextOpt };
+        var convSearchTextOpt = new Option<string>("--text") { IsRequired = true };
+        var convSearchCmd = new Command("conversation-search", "Search conversation for text") { convSearchTextOpt };
         convSearchCmd.SetHandler(async (string text) =>
         {
             var state = LoadState();
@@ -916,7 +888,7 @@ class Program
                 Console.WriteLine($"[{i}] {m}");
             }
             await Task.CompletedTask;
-        }, searchTextOpt);
+        }, convSearchTextOpt);
 
         var startOpt = new Option<int>("--start") { IsRequired = true };
         var endOpt = new Option<int>("--end") { IsRequired = true };
@@ -935,6 +907,50 @@ class Program
             await Task.CompletedTask;
         }, startOpt, endOpt);
 
+        var convFirstCmd = new Command("conversation-first", "Show first conversation message");
+        convFirstCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            if (state.Conversation.Count > 0)
+            {
+                Console.WriteLine(state.Conversation.First());
+            }
+            else
+            {
+                Console.WriteLine("No conversation");
+            }
+            await Task.CompletedTask;
+        });
+
+        var showRangeStartOpt = new Option<int>("--start") { IsRequired = true };
+        var showRangeEndOpt = new Option<int>("--end") { IsRequired = true };
+        var conversationRangeCmd = new Command("conversation-range", "Show conversation messages in range") { showRangeStartOpt, showRangeEndOpt };
+        conversationRangeCmd.SetHandler(async (int start, int end) =>
+        {
+            var state = LoadState();
+            if (start < 0 || end >= state.Conversation.Count || start > end)
+            {
+                Console.WriteLine("Invalid range");
+                return;
+            }
+            for (int i = start; i <= end; i++)
+            {
+                Console.WriteLine(state.Conversation[i]);
+            }
+            await Task.CompletedTask;
+        }, showRangeStartOpt, showRangeEndOpt);
+
+        var conversationInfoCmd = new Command("conversation-info", "Show conversation statistics and ends");
+        conversationInfoCmd.SetHandler(async () =>
+        {
+            var state = LoadState();
+            var count = state.Conversation.Count;
+            var chars = state.Conversation.Sum(m => m.Length);
+            var first = count > 0 ? state.Conversation.First() : string.Empty;
+            var last = count > 0 ? state.Conversation.Last() : string.Empty;
+            Console.WriteLine($"count:{count} chars:{chars}\nfirst:{first}\nlast:{last}");
+            await Task.CompletedTask;
+        });
         var memoryInfoCmd = new Command("memory-info", "Show memory file path and content");
         memoryInfoCmd.SetHandler(async () =>
         {
@@ -1162,6 +1178,48 @@ class Program
             await Task.CompletedTask;
         });
 
+        var memorySizeCmd = new Command("memory-size", "Show memory file size");
+        memorySizeCmd.SetHandler(async () =>
+        {
+            var size = File.Exists(MemoryPath) ? new FileInfo(MemoryPath).Length : 0;
+            Console.WriteLine(size);
+            await Task.CompletedTask;
+        });
+
+        var memSearchTextOpt = new Option<string>("--text") { IsRequired = true };
+        var searchMemoryCmd = new Command("search-memory", "Search memory for text") { memSearchTextOpt };
+        searchMemoryCmd.SetHandler(async (string text) =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            foreach (var line in File.ReadLines(MemoryPath))
+            {
+                if (line.Contains(text, StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine(line);
+                }
+            }
+            await Task.CompletedTask;
+        }, memSearchTextOpt);
+
+        var deletePatternOpt = new Option<string>("--pattern") { IsRequired = true };
+        var deleteMemoryLineCmd = new Command("delete-memory-lines", "Remove memory lines matching pattern") { deletePatternOpt };
+        deleteMemoryLineCmd.SetHandler(async (string pattern) =>
+        {
+            if (!File.Exists(MemoryPath))
+            {
+                Console.WriteLine("No memory file found");
+                return;
+            }
+            var lines = File.ReadAllLines(MemoryPath).ToList();
+            var remaining = lines.Where(l => !l.Contains(pattern, StringComparison.OrdinalIgnoreCase)).ToList();
+            File.WriteAllLines(MemoryPath, remaining);
+            Console.WriteLine(lines.Count - remaining.Count);
+            await Task.CompletedTask;
+        }, deletePatternOpt);
         var summarizeCmd = new Command("summarize-conversation", "Summarize stored conversation");
         summarizeCmd.SetHandler(async () =>
         {
@@ -1718,6 +1776,61 @@ class Program
             await Task.CompletedTask;
         }, dirPathOption);
 
+        var listDirRecursiveCmd = new Command("list-directory-recursive", "List directory recursively") { dirPathOption };
+        listDirRecursiveCmd.SetHandler(async (string path) =>
+        {
+            if (!Directory.Exists(path))
+            {
+                Console.WriteLine("Directory not found");
+                return;
+            }
+            foreach (var entry in Directory.EnumerateFileSystemEntries(path, "*", SearchOption.AllDirectories))
+            {
+                Console.WriteLine(entry);
+            }
+            await Task.CompletedTask;
+        }, dirPathOption);
+
+        var headLinesOpt = new Option<int>("--lines", () => 10);
+        var headFileCmd = new Command("head-file", "Read first lines of file") { readPathOption, headLinesOpt };
+        headFileCmd.SetHandler(async (string path, int lines) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            foreach (var line in File.ReadLines(path).Take(lines))
+            {
+                Console.WriteLine(line);
+            }
+            await Task.CompletedTask;
+        }, readPathOption, headLinesOpt);
+
+        var tailLinesOpt = new Option<int>("--lines", () => 10);
+        var tailFileCmd = new Command("tail-file", "Read last lines of file") { readPathOption, tailLinesOpt };
+        tailFileCmd.SetHandler(async (string path, int lines) =>
+        {
+            if (!File.Exists(path))
+            {
+                Console.WriteLine("File not found");
+                return;
+            }
+            var allLines = File.ReadAllLines(path);
+            foreach (var line in allLines.TakeLast(lines))
+            {
+                Console.WriteLine(line);
+            }
+            await Task.CompletedTask;
+        }, readPathOption, tailLinesOpt);
+
+        var fileSizeCmd = new Command("file-size", "Show size of a file") { readPathOption };
+        fileSizeCmd.SetHandler(async (string path) =>
+        {
+            var size = File.Exists(path) ? new FileInfo(path).Length : 0;
+            Console.WriteLine(size);
+            await Task.CompletedTask;
+        }, readPathOption);
         var createDirCmd = new Command("create-directory", "Create a directory") { dirPathOption };
         createDirCmd.SetHandler(async (string path) =>
         {
@@ -2090,7 +2203,7 @@ class Program
             clearConvCmd, conversationCmd, saveConvCmd,
             memoryInfoCmd, memoryPathCmd, createMemoryCmd,
             addMemoryCmd, replaceMemoryCmd, parseMemoryCmd,
-            sectionCountCmd, entryCountCmd, memoryTemplateCmd,
+            sectionCountCmd, entryCountCmd, memoryTemplateCmd, memorySizeCmd, searchMemoryCmd, deleteMemoryLineCmd,
             summarizeCmd, convStatsCmd,
             convCharCountCmd, summaryCountCmd, compressConvCmd,
             clearHistoryCmd, showSummariesCmd, exportSummariesCmd,
@@ -2102,7 +2215,7 @@ class Program
             readFileCmd, readNumberedCmd, readLinesCmd,
             writeFileCmd, writeDiffCmd, editFileCmd, appendFileCmd,
             genWriteDiffCmd, genEditDiffCmd, copyFileCmd, moveFileCmd, renameFileCmd,
-            deleteFileCmd, fileExistsCmd, listDirCmd, createDirCmd, deleteDirCmd, dirExistsCmd, fileInfoCmd, countLinesCmd,
+            deleteFileCmd, fileExistsCmd, listDirCmd, listDirRecursiveCmd, headFileCmd, tailFileCmd, fileSizeCmd, createDirCmd, deleteDirCmd, dirExistsCmd, fileInfoCmd, countLinesCmd,
             globSearchCmd, globSearchInDirCmd, grepSearchCmd,
             currentModelCmd, listSubsCmd, deleteMemorySectionCmd,
             deleteTaskCmd, taskInfoCmd, taskStatsCmd,
@@ -2112,7 +2225,7 @@ class Program
             appendMemoryCmd, importMemoryCmd, exportMemoryCmd, statePathCmd, stateInfoCmd, versionCmd,
             memoryExistsCmd, subscribeCmd, unsubscribeCmd, subscriptionCountCmd,
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
-            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, exportConvCmd, deleteConvMsgCmd,
+            importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, exportConvCmd, deleteConvMsgCmd,
             latestSummaryCmd, summaryInfoCmd, deleteSummaryRangeCmd,
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd
