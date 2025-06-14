@@ -1941,6 +1941,32 @@ class Program
             await Task.CompletedTask;
         }, summaryInfoIndexOpt);
 
+        var summaryExistsCmd = new Command("summary-exists", "Check if summary index exists") { summaryInfoIndexOpt };
+        summaryExistsCmd.SetHandler(async (int index) =>
+        {
+            var state = LoadState();
+            Console.WriteLine(index >= 0 && index < state.ConversationSummaries.Count ? "true" : "false");
+            await Task.CompletedTask;
+        }, summaryInfoIndexOpt);
+
+        var appendSummaryTextOpt = new Option<string>("--text") { IsRequired = true };
+        var appendSummaryCmd = new Command("append-summary", "Append text to a summary") { summaryInfoIndexOpt, appendSummaryTextOpt };
+        appendSummaryCmd.SetHandler(async (int index, string text) =>
+        {
+            var state = LoadState();
+            if (index >= 0 && index < state.ConversationSummaries.Count)
+            {
+                state.ConversationSummaries[index].Content += " " + text;
+                SaveState(state);
+                Console.WriteLine("updated");
+            }
+            else
+            {
+                Console.WriteLine("Invalid index");
+            }
+            await Task.CompletedTask;
+        }, summaryInfoIndexOpt, appendSummaryTextOpt);
+
         var startRangeOpt = new Option<int>("--start") { IsRequired = true };
         var endRangeOpt = new Option<int>("--end") { IsRequired = true };
         var deleteSummaryRangeCmd = new Command("delete-summary-range", "Delete summaries in range") { startRangeOpt, endRangeOpt };
@@ -2816,6 +2842,7 @@ class Program
             taskCountCmd, clearTasksCmd, clearCompletedCmd, tasksByStatusCmd, updateTaskDescCmd, exportTasksCmd,
             importTasksCmd, importConvCmd, appendConvCmd, convLenCmd, lastConvCmd, convSearchCmd, deleteRangeCmd, convFirstCmd, conversationRangeCmd, conversationInfoCmd, listConvCmd, conversationAtCmd, deleteBeforeCmd, deleteAfterCmd, deleteContainsCmd, reverseConvCmd, exportConvCmd, deleteConvMsgCmd,
             latestSummaryCmd, summaryInfoCmd, deleteSummaryRangeCmd,
+            summaryExistsCmd, appendSummaryCmd,
             addOutputTokensCmd, taskDurationCmd,
             setWorkingDirCmd, currentDirCmd,
             readBinaryCmd, writeBinaryCmd, fileHashCmd, fileWordCountCmd,

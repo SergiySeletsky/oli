@@ -180,6 +180,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Enhanced auto compression and conversation/text summarization with LLM calls.
 - Added commands `summarize-file`, `summarize-memory-section`, `summarize-tasks`,
   `summarize-state`, `conversation-word-frequency`, and `tasks-due-today`.
+- Added task utilities `task-exists`, `tasks-due-range`, `tasks-due-tomorrow`, and `count-task-tags`.
+- Added summary helpers `summary-exists` and `append-summary`.
+- Added memory command `memory-section-exists`.
+- Added LSP utilities `export-lsp`, `import-lsp`, and `lsp-count`.
 - Added memory commands `sort-memory`, `search-memory-regex`, and `memory-word-frequency`.
 - Added task utilities `tasks-by-created`, `reset-tasks`, `export-tasks-csv`, and `import-tasks-csv`.
 - Added LSP helper commands `lsp-restart` and `lsp-path`.

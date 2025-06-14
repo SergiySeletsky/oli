@@ -70,6 +70,33 @@ public static class LspCommands
             var info = state.LspServers.FirstOrDefault(s => s.Id == id);
             if (info == null)
             {
+        var exportLspOpt = new Option<string>("--path") { IsRequired = true };
+        var exportLspCmd = new Command("export-lsp", "Export LSP server list") { exportLspOpt };
+        exportLspCmd.SetHandler(async (string path) =>
+        {
+            if (File.Exists(Program.LspPath)) File.Copy(Program.LspPath, path, true);
+            Console.WriteLine($"exported to {path}");
+            await Task.CompletedTask;
+        }, exportLspOpt);
+
+        var importLspOpt = new Option<string>("--path") { IsRequired = true };
+        var importLspCmd = new Command("import-lsp", "Import LSP server list") { importLspOpt };
+        importLspCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            File.Copy(path, Program.LspPath, true);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, importLspOpt);
+
+        var lspCountCmd = new Command("lsp-count", "Show number of LSP servers");
+        lspCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.LspServers.Count);
+            await Task.CompletedTask;
+        });
+
                 Console.WriteLine("Server not found");
                 return;
             }
@@ -206,6 +233,9 @@ public static class LspCommands
         }, lspFileOpt, lspLineOpt);
 
         var lspFormatCmd = new Command("lsp-format", "Format file") { lspFileOpt };
+        root.Add(exportLspCmd);
+        root.Add(importLspCmd);
+        root.Add(lspCountCmd);
         lspFormatCmd.SetHandler(async (string file) =>
         {
             if (!File.Exists(file)) { Console.WriteLine("not found"); return; }

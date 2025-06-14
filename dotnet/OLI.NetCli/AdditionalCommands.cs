@@ -213,6 +213,28 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, idArg);
 
+        // task-exists
+        var taskExistsCmd = new Command("task-exists", "Check if task id exists") { idArg };
+        taskExistsCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Tasks.Any(t => t.Id == id) ? "true" : "false");
+            await Task.CompletedTask;
+        }, idArg);
+
+        // count-task-tags
+        var countTagsCmd = new Command("count-task-tags", "Show tag usage counts");
+        countTagsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var counts = state.Tasks.SelectMany(t => t.Tags)
+                .GroupBy(t => t)
+                .Select(g => (Tag: g.Key, Count: g.Count()))
+                .OrderByDescending(g => g.Count);
+            foreach (var (tag, c) in counts) Console.WriteLine($"{tag}:{c}");
+            await Task.CompletedTask;
+        });
+
         // tasks-by-tag
         var tasksByTagCmd = new Command("tasks-by-tag", "List tasks with given tag") { tagArg };
         tasksByTagCmd.SetHandler(async (string tag) =>
@@ -234,6 +256,34 @@ public static class AdditionalCommands
                 Console.WriteLine($"{t.Id}: {t.Description} due {t.DueDate:u}");
             await Task.CompletedTask;
         }, daysOpt);
+
+        // tasks-due-range
+        var startOpt = new Option<string>("--start") { IsRequired = true };
+        var endOpt = new Option<string>("--end") { IsRequired = true };
+        var tasksRangeCmd = new Command("tasks-due-range", "List tasks due between two dates") { startOpt, endOpt };
+        tasksRangeCmd.SetHandler(async (string start, string end) =>
+        {
+            if (!DateTime.TryParse(start, out var s) || !DateTime.TryParse(end, out var e))
+            {
+                Console.WriteLine("invalid dates");
+                return;
+            }
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.DueDate != null && t.DueDate >= s && t.DueDate <= e))
+                Console.WriteLine($"{t.Id}: {t.Description} due {t.DueDate:u}");
+            await Task.CompletedTask;
+        }, startOpt, endOpt);
+
+        // tasks-due-tomorrow
+        var tasksTomorrowCmd = new Command("tasks-due-tomorrow", "List tasks due tomorrow");
+        tasksTomorrowCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var tomorrow = DateTime.UtcNow.Date.AddDays(1);
+            foreach (var t in state.Tasks.Where(t => t.DueDate?.Date == tomorrow))
+                Console.WriteLine($"{t.Id} {t.Description}");
+            await Task.CompletedTask;
+        });
 
         // tasks-overdue
         var overdueCmd = new Command("tasks-overdue", "List overdue tasks");
@@ -1061,6 +1111,16 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, renameOldOpt, renameNewOpt);
 
+        // memory-section-exists
+        var memExistsCmd = new Command("memory-section-exists", "Check if memory section exists") { memSectionOpt };
+        memExistsCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("false"); return; }
+            var exists = File.ReadLines(Program.MemoryPath).Any(l => l.StartsWith("## ") && l[3..].Trim() == section);
+            Console.WriteLine(exists ? "true" : "false");
+            await Task.CompletedTask;
+        }, memSectionOpt);
+
         // search-tasks-regex
         var tasksRegexArg = new Argument<string>("pattern");
         var searchTasksRegexCmd = new Command("search-tasks-regex", "Regex search task descriptions") { tasksRegexArg };
@@ -1194,6 +1254,7 @@ public static class AdditionalCommands
         root.Add(importTasksTextCmd);
         root.Add(memSectionCmd);
         root.Add(renameMemCmd);
+        root.Add(memExistsCmd);
         root.Add(searchTasksRegexCmd);
         root.Add(splitLogCmd);
         root.Add(compressLogCmd);
@@ -1204,8 +1265,12 @@ public static class AdditionalCommands
         root.Add(addTagCmd);
         root.Add(removeTagCmd);
         root.Add(listTagsCmd);
+        root.Add(taskExistsCmd);
+        root.Add(countTagsCmd);
         root.Add(tasksByTagCmd);
         root.Add(dueSoonCmd);
+        root.Add(tasksRangeCmd);
+        root.Add(tasksTomorrowCmd);
         root.Add(overdueCmd);
 
         // search-memory
