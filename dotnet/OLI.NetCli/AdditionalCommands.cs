@@ -1748,6 +1748,26 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // tasks-notes-count
+        var tasksNotesCountCmd = new Command("tasks-notes-count", "Count tasks with notes");
+        tasksNotesCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Tasks.Count(t => !string.IsNullOrWhiteSpace(t.Notes)));
+            await Task.CompletedTask;
+        });
+
+        // tasks-by-note
+        var noteQueryArg = new Argument<string>("text");
+        var tasksByNoteCmd = new Command("tasks-by-note", "List tasks with notes containing text") { noteQueryArg };
+        tasksByNoteCmd.SetHandler(async (string text) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Notes != null && t.Notes.Contains(text, StringComparison.OrdinalIgnoreCase)))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, noteQueryArg);
+
         // tasks-without-due
         var tasksWithoutDueCmd = new Command("tasks-without-due", "List tasks missing due date");
         tasksWithoutDueCmd.SetHandler(async () =>
@@ -1764,6 +1784,16 @@ public static class AdditionalCommands
         {
             var state = Program.LoadState();
             foreach (var t in state.Tasks.Where(t => t.Tags.Count == 0))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-with-tags
+        var tasksWithTagsCmd = new Command("tasks-with-tags", "List tasks that have tags");
+        tasksWithTagsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Tags.Count > 0))
                 Console.WriteLine($"{t.Id}: {t.Description}");
             await Task.CompletedTask;
         });
@@ -1962,8 +1992,11 @@ public static class AdditionalCommands
         root.Add(archivedTasksCmd);
         root.Add(listTaskIdsCmd);
         root.Add(tasksWithNotesCmd);
+        root.Add(tasksNotesCountCmd);
+        root.Add(tasksByNoteCmd);
         root.Add(tasksWithoutNotesCmd);
         root.Add(tasksWithoutDueCmd);
+        root.Add(tasksWithTagsCmd);
         root.Add(tasksWithoutTagsCmd);
         root.Add(tasksAvgDurationCmd);
         root.Add(addMemSectionCmd);

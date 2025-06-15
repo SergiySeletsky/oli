@@ -309,6 +309,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation utilities `conversation-max-index`, `conversation-swap`, and `conversation-merge`.
 - Added subscription management commands `export-subscriptions`, `import-subscriptions`, and `clear-subscriptions`.
 - Added LSP helpers `lsp-find-language` and `lsp-find-root`.
+- Added conversation utilities `conversation-first-n`, `conversation-shuffle`, `conversation-to-json`, and `conversation-from-json`.
+- Added task helpers `tasks-notes-count`, `tasks-by-note`, and `tasks-with-tags`.
+- Expanded LSP management with `lsp-stop-all`, `lsp-update-root`, `lsp-language-stats`, `lsp-open-root`, `export-lsp-csv`, `import-lsp-csv`, and `lsp-set-language`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
