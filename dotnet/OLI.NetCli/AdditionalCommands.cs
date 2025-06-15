@@ -1658,6 +1658,28 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // tasks-without-notes
+        var tasksWithoutNotesCmd = new Command("tasks-without-notes", "List tasks missing notes");
+        tasksWithoutNotesCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => string.IsNullOrWhiteSpace(t.Notes)))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-average-duration
+        var tasksAvgDurationCmd = new Command("tasks-average-duration", "Average duration of completed tasks");
+        tasksAvgDurationCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var completed = state.Tasks.Where(t => t.Status == "completed");
+            if (!completed.Any()) { Console.WriteLine("0"); await Task.CompletedTask; return; }
+            var avg = completed.Average(t => (t.UpdatedAt - t.CreatedAt).TotalSeconds);
+            Console.WriteLine(avg.ToString("F0"));
+            await Task.CompletedTask;
+        });
+
         // add-memory-section
         var addSecNameArg = new Argument<string>("section");
         var addSecFileArg = new Argument<string>("path");
@@ -1830,8 +1852,10 @@ public static class AdditionalCommands
         root.Add(archivedTasksCmd);
         root.Add(listTaskIdsCmd);
         root.Add(tasksWithNotesCmd);
+        root.Add(tasksWithoutNotesCmd);
         root.Add(tasksWithoutDueCmd);
         root.Add(tasksWithoutTagsCmd);
+        root.Add(tasksAvgDurationCmd);
         root.Add(addMemSectionCmd);
         root.Add(updateMemSectionCmd);
         root.Add(convClearAfterCmd);

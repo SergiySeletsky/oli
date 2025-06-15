@@ -236,6 +236,42 @@ public static class SummaryCommands
             await Task.CompletedTask;
         }, importSumPathArg);
 
+        var exportSummariesCsvArg = new Argument<string>("path");
+        var exportSummariesCsvCmd = new Command("export-summaries-csv", "Export summaries as CSV") { exportSummariesCsvArg };
+        exportSummariesCsvCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            using var writer = new StreamWriter(path);
+            await writer.WriteLineAsync("created_at,messages,chars,content");
+            foreach (var s in state.ConversationSummaries)
+                await writer.WriteLineAsync($"{s.CreatedAt:u},{s.MessagesCount},{s.OriginalChars},{EscapeCsv(s.Content)}");
+        }, exportSummariesCsvArg);
+
+        var importSummariesCsvArg = new Argument<string>("path");
+        var importSummariesCsvCmd = new Command("import-summaries-csv", "Import summaries from CSV") { importSummariesCsvArg };
+        importSummariesCsvCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var summaries = new System.Collections.Generic.List<ConversationSummary>();
+            foreach (var line in File.ReadLines(path).Skip(1))
+            {
+                var parts = SplitCsv(line);
+                if (parts.Length < 4) continue;
+                summaries.Add(new ConversationSummary
+                {
+                    CreatedAt = DateTime.Parse(parts[0]),
+                    MessagesCount = int.Parse(parts[1]),
+                    OriginalChars = int.Parse(parts[2]),
+                    Content = parts[3]
+                });
+            }
+            var state = Program.LoadState();
+            state.ConversationSummaries = summaries;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, importSummariesCsvArg);
+
         root.Add(showSummariesCmd);
         root.Add(exportSummariesCmd);
         root.Add(importSummariesCmd);
@@ -251,5 +287,34 @@ public static class SummaryCommands
         root.Add(summaryRangeCmd);
         root.Add(exportSummaryMdCmd);
         root.Add(importSummaryMdCmd);
+        root.Add(exportSummariesCsvCmd);
+        root.Add(importSummariesCsvCmd);
+    }
+
+    static string EscapeCsv(string s)
+    {
+        return s.Contains(',') || s.Contains('"') || s.Contains('\n')
+            ? "\"" + s.Replace("\"", "\"\"") + "\""
+            : s;
+    }
+
+    static string[] SplitCsv(string line)
+    {
+        var parts = new List<string>();
+        var sb = new System.Text.StringBuilder();
+        bool quote = false;
+        foreach (var c in line)
+        {
+            if (c == '"') { quote = !quote; continue; }
+            if (c == ',' && !quote)
+            {
+                parts.Add(sb.ToString());
+                sb.Clear();
+                continue;
+            }
+            sb.Append(c);
+        }
+        parts.Add(sb.ToString());
+        return parts.ToArray();
     }
 }

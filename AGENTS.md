@@ -294,6 +294,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `export-summary-md`, and `import-summary-md`.
 - Added memory utility `memory-section-names`.
 - Added task tag search via `search-task-tags`.
+- Added conversation checks `conversation-exists` and `conversation-has` with cleanup via `remove-empty-conversation`.
+- Added `conversation-last-n` and CSV export with `conversation-to-csv`.
+- Added task filters `tasks-without-notes` and average duration via `tasks-average-duration`.
+- Added tool analytics command `tool-failure-count`.
+- Added summary CSV helpers `export-summaries-csv` and `import-summaries-csv`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
