@@ -342,6 +342,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Implemented conversation history persistence with `history.jsonl` and added commands
   `history-path`, `history-exists`, `history-count`, `show-history`, `delete-history`,
   `export-history`, `import-history`, `archive-history`, `compress-history`, and `decompress-history`.
+- Extended history tooling with `history-first`, `history-last`, `history-range`,
+  `history-search`, `history-stats`, `history-delete-before`, `history-truncate`,
+  `export-history-csv`, `import-history-csv`, and `history-summary`.
 
 ### TODO for Next Run
  - Implement tool integrations similar to the Rust backend.
