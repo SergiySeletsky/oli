@@ -289,6 +289,11 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation helper `conversation-unique-words`.
 - Added backup helpers `backup-path` and `open-backups`.
 - Added tool progress commands `tool-progress` and `tool-progress-all`.
+- Added file compression helpers `compress-file` and `decompress-file`.
+- Added summary management commands `summary-age`, `summary-range`,
+  `export-summary-md`, and `import-summary-md`.
+- Added memory utility `memory-section-names`.
+- Added task tag search via `search-task-tags`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.

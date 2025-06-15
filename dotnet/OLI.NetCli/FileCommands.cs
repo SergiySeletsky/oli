@@ -416,6 +416,28 @@ public static class FileCommands
             Console.WriteLine(lines.Length);
         }, readPathOption);
 
+        var compressSrcArg = new Argument<string>("src");
+        var compressDestArg = new Argument<string>("dest");
+        var compressCmd = new Command("compress-file", "Compress file to zip") { compressSrcArg, compressDestArg };
+        compressCmd.SetHandler(async (string src, string dest) =>
+        {
+            if (!File.Exists(src)) { Console.WriteLine("File not found"); return; }
+            FileUtils.CompressFile(src, dest);
+            Console.WriteLine($"Compressed to {dest}");
+            await Task.CompletedTask;
+        }, compressSrcArg, compressDestArg);
+
+        var decompressSrcArg = new Argument<string>("src");
+        var decompressDestArg = new Argument<string>("dest");
+        var decompressCmd = new Command("decompress-file", "Extract first entry from zip") { decompressSrcArg, decompressDestArg };
+        decompressCmd.SetHandler(async (string src, string dest) =>
+        {
+            if (!File.Exists(src)) { Console.WriteLine("File not found"); return; }
+            FileUtils.DecompressFile(src, dest);
+            Console.WriteLine($"Decompressed to {dest}");
+            await Task.CompletedTask;
+        }, decompressSrcArg, decompressDestArg);
+
         root.Add(readFileCmd);
         root.Add(readNumberedCmd);
         root.Add(readLinesCmd);
@@ -500,5 +522,7 @@ public static class FileCommands
         root.Add(writeBinaryCmd);
         root.Add(fileHashCmd);
         root.Add(fileWordCountCmd);
+        root.Add(compressCmd);
+        root.Add(decompressCmd);
     }
 }

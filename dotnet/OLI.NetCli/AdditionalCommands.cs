@@ -458,6 +458,15 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, tagArg);
 
+        var tasksTagSearchCmd = new Command("search-task-tags", "Search tasks by tag substring") { tagArg };
+        tasksTagSearchCmd.SetHandler(async (string tag) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Tags.Any(x => x.Contains(tag, StringComparison.OrdinalIgnoreCase))))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, tagArg);
+
         // tasks-due-soon
         var daysOpt = new Option<int>("--days", () => 7);
         var dueSoonCmd = new Command("tasks-due-soon", "List tasks due within days") { daysOpt };
@@ -1764,6 +1773,8 @@ public static class AdditionalCommands
         root.Add(backupAllCmd);
         root.Add(listBackupsCmd);
         root.Add(openLatestBackupCmd);
+        root.Add(tasksByTagCmd);
+        root.Add(tasksTagSearchCmd);
         root.Add(tasksByPriorityCmd);
         root.Add(conversationFirstCmd);
         root.Add(conversationRangeCmd);

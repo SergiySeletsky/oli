@@ -348,6 +348,15 @@ public static class MemoryCommands
             await Task.CompletedTask;
         });
 
+        var sectionNamesCmd = new Command("memory-section-names", "List memory section names");
+        sectionNamesCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("none"); return; }
+            foreach (var line in File.ReadLines(Program.MemoryPath))
+                if (line.StartsWith("## ")) Console.WriteLine(line[3..].Trim());
+            await Task.CompletedTask;
+        });
+
         // memory-entry-count
         var entryCountCmd = new Command("memory-entry-count", "Count total memory entries");
         entryCountCmd.SetHandler(async () =>
@@ -498,6 +507,7 @@ public static class MemoryCommands
         root.AddCommand(memoryDiffCmd);
         root.AddCommand(deleteMemorySectionCmd);
         root.AddCommand(listMemorySectionsCmd);
+        root.AddCommand(sectionNamesCmd);
         root.AddCommand(sectionExistsCmd);
     }
 }
