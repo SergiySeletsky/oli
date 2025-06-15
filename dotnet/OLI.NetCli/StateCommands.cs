@@ -60,6 +60,28 @@ public static class StateCommands
             await Task.CompletedTask;
         });
 
+        var autoCompressOpt = new Option<bool>("--enable") { IsRequired = true };
+        var setAutoCompressCmd = new Command("set-auto-compress", "Enable or disable automatic conversation compression") { autoCompressOpt };
+        setAutoCompressCmd.SetHandler(async (bool enable) => {
+            var state = Program.LoadState();
+            state.AutoCompress = enable;
+            Program.SaveState(state);
+            Console.WriteLine($"Auto-compress set to {enable}");
+            await Task.CompletedTask;
+        }, autoCompressOpt);
+
+        var charThreshOpt = new Option<int>("--chars") { IsRequired = true };
+        var msgThreshOpt = new Option<int>("--messages") { IsRequired = true };
+        var setCompressThresholdsCmd = new Command("set-compress-thresholds", "Set auto compression thresholds") { charThreshOpt, msgThreshOpt };
+        setCompressThresholdsCmd.SetHandler(async (int chars, int messages) => {
+            var state = Program.LoadState();
+            state.CompressCharThreshold = chars;
+            state.CompressMessageThreshold = messages;
+            Program.SaveState(state);
+            Console.WriteLine($"Thresholds set chars:{chars} messages:{messages}");
+            await Task.CompletedTask;
+        }, charThreshOpt, msgThreshOpt);
+
         var exportStateOpt = new Option<string>("--path") { IsRequired = true };
         var exportStateCmd = new Command("export-state", "Save state to file") { exportStateOpt };
         exportStateCmd.SetHandler(async (string path) => {
@@ -98,6 +120,8 @@ public static class StateCommands
         root.AddCommand(stateFilesCmd);
         root.AddCommand(setWorkingDirCmd);
         root.AddCommand(currentDirCmd);
+        root.AddCommand(setAutoCompressCmd);
+        root.AddCommand(setCompressThresholdsCmd);
         root.AddCommand(exportStateCmd);
         root.AddCommand(importStateCmd);
         root.AddCommand(resetStateCmd);

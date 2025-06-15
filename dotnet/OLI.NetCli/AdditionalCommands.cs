@@ -778,6 +778,44 @@ public static class AdditionalCommands
             }
         });
 
+        var exportSubsArg = new Argument<string>("path");
+        var exportSubsCmd = new Command("export-subscriptions", "Export subscriptions to JSON") { exportSubsArg };
+        exportSubsCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state.Subscriptions, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"exported to {path}");
+            await Task.CompletedTask;
+        }, exportSubsArg);
+
+        var importSubsArg = new Argument<string>("path");
+        var importSubsCmd = new Command("import-subscriptions", "Load subscriptions from JSON") { importSubsArg };
+        importSubsCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = File.ReadAllText(path);
+            var subs = JsonSerializer.Deserialize<HashSet<string>>(json);
+            if (subs != null)
+            {
+                var state = Program.LoadState();
+                state.Subscriptions = subs;
+                Program.SaveState(state);
+                Console.WriteLine("imported");
+            }
+            else Console.WriteLine("invalid file");
+            await Task.CompletedTask;
+        }, importSubsArg);
+
+        var clearSubsCmd = new Command("clear-subscriptions", "Remove all subscriptions");
+        clearSubsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.Subscriptions.Clear();
+            Program.SaveState(state);
+            Console.WriteLine("cleared");
+            await Task.CompletedTask;
+        });
+
         // set-log-level
         var levelArg = new Argument<string>("level");
         var setLog = new Command("set-log-level", "Set log verbosity") { levelArg };
@@ -1246,6 +1284,44 @@ public static class AdditionalCommands
             Console.WriteLine(state.Conversation.Count);
             await Task.CompletedTask;
         });
+
+        var conversationMaxIndexCmd = new Command("conversation-max-index", "Show last conversation index");
+        conversationMaxIndexCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Conversation.Count > 0 ? state.Conversation.Count - 1 : -1);
+            return Task.CompletedTask;
+        });
+
+        var swapFirstArg = new Argument<int>("first");
+        var swapSecondArg = new Argument<int>("second");
+        var conversationSwapCmd = new Command("conversation-swap", "Swap two messages") { swapFirstArg, swapSecondArg };
+        conversationSwapCmd.SetHandler((int first, int second) =>
+        {
+            var state = Program.LoadState();
+            if (first < 0 || first >= state.Conversation.Count || second < 0 || second >= state.Conversation.Count)
+            {
+                Console.WriteLine("invalid index");
+                return Task.CompletedTask;
+            }
+            (state.Conversation[first], state.Conversation[second]) = (state.Conversation[second], state.Conversation[first]);
+            Program.SaveState(state);
+            Console.WriteLine("swapped");
+            return Task.CompletedTask;
+        }, swapFirstArg, swapSecondArg);
+
+        var mergePathArg = new Argument<string>("path");
+        var conversationMergeCmd = new Command("conversation-merge", "Append messages from file") { mergePathArg };
+        conversationMergeCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var state = Program.LoadState();
+            state.Conversation.AddRange(lines);
+            Program.SaveState(state);
+            Console.WriteLine("merged");
+            await Task.CompletedTask;
+        }, mergePathArg);
 
         // conversation-search
         var convSearchArg = new Argument<string>("text");
@@ -1894,6 +1970,9 @@ public static class AdditionalCommands
         root.Add(updateMemSectionCmd);
         root.Add(convClearAfterCmd);
         root.Add(convSliceCmd);
+        root.Add(conversationMaxIndexCmd);
+        root.Add(conversationSwapCmd);
+        root.Add(conversationMergeCmd);
         root.Add(nextTaskCmd);
         root.Add(taskRename);
         root.Add(setPriority);
@@ -1902,6 +1981,9 @@ public static class AdditionalCommands
         root.Add(rpcEvents);
         root.Add(rpcEventCountCmd);
         root.Add(rpcClearCmd);
+        root.Add(exportSubsCmd);
+        root.Add(importSubsCmd);
+        root.Add(clearSubsCmd);
         root.Add(setLog);
         root.Add(showLog);
         root.Add(clearLog);

@@ -111,6 +111,26 @@ public static class LspCommands
             await Task.CompletedTask;
         });
 
+        var langSearchArg = new Argument<string>("language");
+        var lspFindLangCmd = new Command("lsp-find-language", "List servers by language") { langSearchArg };
+        lspFindLangCmd.SetHandler(async (string language) =>
+        {
+            var state = Program.LoadState();
+            foreach (var s in state.LspServers.Where(s => s.Language.Equals(language, StringComparison.OrdinalIgnoreCase)))
+                Console.WriteLine(s.Id);
+            await Task.CompletedTask;
+        }, langSearchArg);
+
+        var rootSearchArg = new Argument<string>("path");
+        var lspFindRootCmd = new Command("lsp-find-root", "List servers with root path containing text") { rootSearchArg };
+        lspFindRootCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            foreach (var s in state.LspServers.Where(s => s.RootPath.Contains(path, StringComparison.OrdinalIgnoreCase)))
+                Console.WriteLine(s.Id);
+            await Task.CompletedTask;
+        }, rootSearchArg);
+
         var lspPathCmd = new Command("lsp-path", "Show path to LSP server list");
         lspPathCmd.SetHandler(() => { Console.WriteLine(Program.LspPath); });
 
@@ -122,6 +142,8 @@ public static class LspCommands
         root.Add(importLspCmd);
         root.Add(lspInfoCmd);
         root.Add(lspCountCmd);
+        root.Add(lspFindLangCmd);
+        root.Add(lspFindRootCmd);
         root.Add(lspPathCmd);
     }
 }

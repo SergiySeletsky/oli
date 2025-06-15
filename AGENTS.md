@@ -305,6 +305,10 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Implemented task cleanup with `cleanup-tasks` and listing via `tasks-older-than`.
 - Added memory helpers `memory-preview` and `memory-contains`.
 - Added tool metric `tool-success-rate`.
+- Added configuration commands `set-auto-compress` and `set-compress-thresholds`.
+- Added conversation utilities `conversation-max-index`, `conversation-swap`, and `conversation-merge`.
+- Added subscription management commands `export-subscriptions`, `import-subscriptions`, and `clear-subscriptions`.
+- Added LSP helpers `lsp-find-language` and `lsp-find-root`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
