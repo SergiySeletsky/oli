@@ -292,6 +292,20 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, convTopOpt);
 
+        // conversation-unique-words
+        var conversationUniqueCmd = new Command("conversation-unique-words", "Count unique words in conversation");
+        conversationUniqueCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var unique = state.Conversation
+                .SelectMany(l => l.Split(new[]{' ','\n','\r','\t'}, StringSplitOptions.RemoveEmptyEntries))
+                .Select(w => w.ToLowerInvariant())
+                .Distinct()
+                .Count();
+            Console.WriteLine(unique);
+            await Task.CompletedTask;
+        });
+
         // task-rename
         var idArg = new Argument<string>("id");
         var descArg = new Argument<string>("description");
@@ -1729,6 +1743,7 @@ public static class AdditionalCommands
         root.Add(summarizeTasksCmd);
         root.Add(summarizeStateCmd);
         root.Add(conversationWordFreqCmd);
+        root.Add(conversationUniqueCmd);
         root.Add(logPathCmd);
         root.Add(searchLogCmd);
         root.Add(exportLogCmd);

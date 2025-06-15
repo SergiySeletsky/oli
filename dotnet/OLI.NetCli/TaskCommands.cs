@@ -493,6 +493,99 @@ public static class TaskCommands
             await Task.CompletedTask;
         });
 
+        // tasks-failed
+        var tasksFailedCmd = new Command("tasks-failed", "List failed tasks");
+        tasksFailedCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Status == "failed"))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // task-status-counts
+        var taskStatusCountsCmd = new Command("task-status-counts", "Show counts by status");
+        taskStatusCountsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var g in state.Tasks.GroupBy(t => t.Status))
+                Console.WriteLine($"{g.Key}:{g.Count()}");
+            await Task.CompletedTask;
+        });
+
+        // task-age
+        var taskAgeCmd = new Command("task-age", "Show seconds since task creation") { statsIdOpt };
+        taskAgeCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null) Console.WriteLine((DateTime.UtcNow - task.CreatedAt).TotalSeconds);
+            else Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, statsIdOpt);
+
+        // set-task-notes
+        var notesArg = new Argument<string>("notes");
+        var setNotesCmd = new Command("set-task-notes", "Set task notes") { statsIdOpt, notesArg };
+        setNotesCmd.SetHandler(async (string id, string notes) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Notes = notes;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("notes set");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, statsIdOpt, notesArg);
+
+        // append-task-notes
+        var appendNotesCmd = new Command("append-task-notes", "Append to task notes") { statsIdOpt, notesArg };
+        appendNotesCmd.SetHandler(async (string id, string notes) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Notes += notes;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("notes appended");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, statsIdOpt, notesArg);
+
+        // show-task-notes
+        var showNotesCmd = new Command("show-task-notes", "Display task notes") { statsIdOpt };
+        showNotesCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            Console.WriteLine(task?.Notes ?? "not found");
+            await Task.CompletedTask;
+        }, statsIdOpt);
+
+        // delete-task-notes
+        var delNotesCmd = new Command("delete-task-notes", "Remove notes from task") { statsIdOpt };
+        delNotesCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null)
+            {
+                task.Notes = string.Empty;
+                task.UpdatedAt = DateTime.UtcNow;
+                Program.SaveState(state);
+                Console.WriteLine("notes deleted");
+            }
+            else Console.WriteLine("task not found");
+            await Task.CompletedTask;
+        }, statsIdOpt);
+
         // tasks-by-updated
         var tasksByUpdatedCmd = new Command("tasks-by-updated", "List tasks sorted by last update");
         tasksByUpdatedCmd.SetHandler(async () =>
@@ -544,15 +637,18 @@ public static class TaskCommands
         root.AddCommand(addInputTokensCmd);
         root.AddCommand(addOutputTokensCmd);
         root.AddCommand(taskDurationCmd);
+        root.AddCommand(taskAgeCmd);
         root.AddCommand(addToolUseCmd);
         root.AddCommand(taskCountCmd);
         root.AddCommand(clearTasksCmd);
         root.AddCommand(clearCompletedCmd);
         root.AddCommand(tasksByStatusCmd);
+        root.AddCommand(taskStatusCountsCmd);
         root.AddCommand(updateTaskDescCmd);
         root.AddCommand(exportTasksCmd);
         root.AddCommand(importTasksCmd);
         root.AddCommand(purgeFailedCmd);
+        root.AddCommand(tasksFailedCmd);
         root.AddCommand(tasksOverviewCmd);
         root.AddCommand(tasksTodayCmd);
         root.AddCommand(tasksWeekCmd);
@@ -561,6 +657,10 @@ public static class TaskCommands
         root.AddCommand(latestTaskCmd);
         root.AddCommand(tasksPendingCmd);
         root.AddCommand(tasksSuccessCmd);
+        root.AddCommand(showNotesCmd);
+        root.AddCommand(setNotesCmd);
+        root.AddCommand(appendNotesCmd);
+        root.AddCommand(delNotesCmd);
         root.AddCommand(tasksByUpdatedCmd);
         root.AddCommand(tasksRecentCmd);
         root.AddCommand(inProgressCmd);

@@ -268,6 +268,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   `running-tool-count`, `tools-by-name`, `tool-count-by-name`,
   `export-tool-run`, `import-tool-run`, and `clear-tools`.
 - Added log utilities `show-log-level`, `search-log-regex`, and `tail-log`.
+- Added log trimming command `trim-log`.
 - Added file utilities `grep-count` and `tail-file-follow`.
 - Added memory command `memory-diff`.
 - Added JSON helpers `json-merge` and `json-validate`.
@@ -280,8 +281,14 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation analysis command `conversation-word-frequency`.
 - Added task utilities `tasks-pending`, `tasks-success`, `tasks-by-updated`,
   and `tasks-recent`.
+- Added task utilities `tasks-failed`, `task-status-counts`, and `task-age`.
+- Added task notes management commands `set-task-notes`, `show-task-notes`,
+  `append-task-notes`, and `delete-task-notes`.
 - Added memory helpers `memory-section-lines`, `rename-memory-section`, and
   `memory-sort-lines`.
+- Added conversation helper `conversation-unique-words`.
+- Added backup helpers `backup-path` and `open-backups`.
+- Added tool progress commands `tool-progress` and `tool-progress-all`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.

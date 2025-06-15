@@ -84,11 +84,22 @@ public static class LogCommands
             }
         }, tailLinesOpt, tailFollowOpt);
 
+        var trimLinesOpt = new Option<int>("--lines", () => 1000);
+        var trimLogCmd = new Command("trim-log", "Keep only last N lines of log") { trimLinesOpt };
+        trimLogCmd.SetHandler((int lines) =>
+        {
+            if (!File.Exists(LogPath)) return Task.CompletedTask;
+            var all = File.ReadAllLines(LogPath).TakeLast(lines);
+            File.WriteAllLines(LogPath, all);
+            return Task.CompletedTask;
+        }, trimLinesOpt);
+
         root.Add(openCmd);
         root.Add(rotateCmd);
         root.Add(sizeCmd);
         root.Add(showLevelCmd);
         root.Add(searchRegexCmd);
         root.Add(tailLogCmd);
+        root.Add(trimLogCmd);
     }
 }

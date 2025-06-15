@@ -157,6 +157,24 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var toolProgressCmd = new Command("tool-progress", "Show tool progress") { toolIdOpt };
+        toolProgressCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var tool = state.ToolExecutions.FirstOrDefault(t => t.Id == id);
+            Console.WriteLine(tool?.Message ?? "not found");
+            await Task.CompletedTask;
+        }, toolIdOpt);
+
+        var toolProgressAllCmd = new Command("tool-progress-all", "Show progress for all tools");
+        toolProgressAllCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.ToolExecutions)
+                Console.WriteLine($"{t.Id}: {t.Message}");
+            await Task.CompletedTask;
+        });
+
         var listToolsByTaskCmd = new Command("list-tools-by-task", "List tools for a task") { startToolTaskOpt };
         listToolsByTaskCmd.SetHandler(async (string taskId) =>
         {
@@ -375,6 +393,8 @@ public static class ToolCommands
         root.AddCommand(toolInfoCmd);
         root.AddCommand(toolCountCmd);
         root.AddCommand(runningToolsCmd);
+        root.AddCommand(toolProgressCmd);
+        root.AddCommand(toolProgressAllCmd);
         root.AddCommand(listToolIdsCmd);
         root.AddCommand(toolExistsCmd);
         root.AddCommand(latestToolCmd);
