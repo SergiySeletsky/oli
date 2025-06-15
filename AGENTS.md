@@ -317,6 +317,8 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation analytics `conversation-role-count` and `conversation-sentiment`.
 - Added HTML helpers `memory-to-html` and `memory-from-html`.
 - Added task utilities `tasks-incomplete-count`, `tasks-to-jsonl`, and `tasks-from-jsonl`.
+- Added shell command execution via `run-command`.
+- Added LSP helpers `lsp-hover`, `lsp-completion`, `lsp-references`, `lsp-rename`, `lsp-signature`, `lsp-format`, `lsp-actions`, `lsp-folding-ranges`, `lsp-diagnostics`, and `lsp-open`.
 
 ### Latest Run
 - Installed the .NET 8 SDK in the container so the CLI can build.
@@ -324,6 +326,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Verified `dotnet build` succeeds.
 - Confirmed `cargo test` passes with all features.
 - Installed `rustfmt` and `clippy` components so `pre-commit` checks run cleanly.
+- Added `pre-commit` and `dotnet` tooling to the environment.
+- Implemented `run-command` and additional LSP commands for hover, completion, references, rename,
+  signature help, formatting, code actions, folding ranges, diagnostics, and opening server roots.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
@@ -337,3 +342,5 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Implement RPC-based event streaming for subscriptions in the .NET CLI.
 - Continue migrating commands from `Program.cs` into dedicated modules.
 - Add more task analytics and finalize parity with the Rust CLI.
+- Integrate the new LSP commands with an actual language server protocol client.
+- Harden the `run-command` feature with better error reporting.

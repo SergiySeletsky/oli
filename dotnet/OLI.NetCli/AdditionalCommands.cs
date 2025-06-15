@@ -1005,6 +1005,27 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, outLogArg);
 
+        // run-command
+        var cmdArg = new Argument<string>("cmd");
+        var runCommand = new Command("run-command", "Execute shell command") { cmdArg };
+        runCommand.SetHandler(async (string cmd) =>
+        {
+            var psi = new ProcessStartInfo("/bin/sh", "-c")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            };
+            psi.ArgumentList.Add(cmd);
+            var proc = Process.Start(psi);
+            if (proc == null) { Console.WriteLine("failed to start"); return; }
+            string stdout = await proc.StandardOutput.ReadToEndAsync();
+            string stderr = await proc.StandardError.ReadToEndAsync();
+            proc.WaitForExit();
+            Console.Write(stdout);
+            if (!string.IsNullOrEmpty(stderr)) Console.Error.WriteLine(stderr);
+        }, cmdArg);
+
         // backup-state
         var backupStateCmd = new Command("backup-state", "Backup state file");
         backupStateCmd.SetHandler(async () =>
@@ -1958,6 +1979,7 @@ public static class AdditionalCommands
         root.Add(logPathCmd);
         root.Add(searchLogCmd);
         root.Add(exportLogCmd);
+        root.Add(runCommand);
         root.Add(backupStateCmd);
         root.Add(restoreStateCmd);
         root.Add(backupMemoryCmd);
