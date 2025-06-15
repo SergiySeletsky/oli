@@ -903,6 +903,19 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, queryArg);
 
+        // search-tasks-regex
+        var regexTaskArg = new Argument<string>("pattern");
+        var searchTasksRegexCmd = new Command("search-tasks-regex", "Regex search task descriptions") { regexTaskArg };
+        searchTasksRegexCmd.SetHandler((string pattern) =>
+        {
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks)
+                if (regex.IsMatch(t.Description))
+                    Console.WriteLine($"{t.Id} {t.Description} ({t.Status})");
+            return Task.CompletedTask;
+        }, regexTaskArg);
+
         // task-history
         var taskHistory = new Command("task-history", "List tasks chronologically");
         taskHistory.SetHandler(async () =>
@@ -1402,6 +1415,19 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, convSearchArg);
 
+        // conversation-search-regex
+        var convRegexArg = new Argument<string>("pattern");
+        var conversationSearchRegexCmd = new Command("conversation-search-regex", "Regex search conversation") { convRegexArg };
+        conversationSearchRegexCmd.SetHandler(async (string pattern) =>
+        {
+            var state = Program.LoadState();
+            var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+            foreach (var (line, idx) in state.Conversation.Select((l,i)=>(l,i)))
+                if (regex.IsMatch(line))
+                    Console.WriteLine($"{idx}: {line}");
+            await Task.CompletedTask;
+        }, convRegexArg);
+
         // list-conversation
         var listConversationCmd = new Command("list-conversation", "List conversation with indexes");
         listConversationCmd.SetHandler(async () =>
@@ -1552,6 +1578,25 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        var tasksOldestCmd = new Command("tasks-oldest", "Show oldest active task id");
+        tasksOldestCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.Where(t => t.Status != "completed" && t.Status != "archived")
+                .OrderBy(t => t.CreatedAt).FirstOrDefault();
+            Console.WriteLine(task != null ? task.Id : "none");
+            await Task.CompletedTask;
+        });
+
+        var tasksPriorityCountCmd = new Command("tasks-priority-count", "Count tasks by priority");
+        tasksPriorityCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var groups = state.Tasks.GroupBy(t => t.Priority).OrderBy(g => g.Key);
+            foreach (var g in groups) Console.WriteLine($"{g.Key}:{g.Count()}");
+            await Task.CompletedTask;
+        });
+
         // reset-tasks
         var resetTasksCmd = new Command("reset-tasks", "Clear tasks and reset current task");
         resetTasksCmd.SetHandler(async () =>
@@ -1613,6 +1658,62 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, importCsvArg);
 
+        // export-tasks-text
+        var exportTextArg = new Argument<string>("path");
+        var exportTasksTextCmd = new Command("export-tasks-text", "Export tasks to text") { exportTextArg };
+        exportTasksTextCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var lines = state.Tasks.Select(t => $"{t.Id}: {t.Description} [{t.Status}]");
+            await File.WriteAllLinesAsync(path, lines);
+            Console.WriteLine($"exported to {path}");
+        }, exportTextArg);
+
+        // import-tasks-text
+        var importTextArg = new Argument<string>("path");
+        var importTasksTextCmd = new Command("import-tasks-text", "Load tasks from text") { importTextArg };
+        importTasksTextCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var list = new List<TaskRecord>();
+            foreach (var line in lines)
+            {
+                var parts = line.Split(':', 2);
+                if (parts.Length < 2) continue;
+                var descPart = parts[1].Trim();
+                var statusIdx = descPart.LastIndexOf('[');
+                string status = "pending";
+                string desc = descPart;
+                if (statusIdx != -1 && descPart.EndsWith("]"))
+                {
+                    status = descPart[(statusIdx + 1)..^1];
+                    desc = descPart[..statusIdx].Trim();
+                }
+                list.Add(new TaskRecord { Id = parts[0].Trim(), Description = desc, Status = status, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+            }
+            var state = Program.LoadState();
+            state.Tasks = list;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, importTextArg);
+
+        // export-tasks-md
+        var exportMdArg = new Argument<string>("path");
+        var exportTasksMdCmd = new Command("export-tasks-md", "Export tasks to Markdown") { exportMdArg };
+        exportTasksMdCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var sb = new StringBuilder();
+            sb.AppendLine("| Id | Description | Status |");
+            sb.AppendLine("| --- | --- | --- |");
+            foreach (var t in state.Tasks)
+                sb.AppendLine($"| {t.Id} | {t.Description.Replace("|","\\|")} | {t.Status} |");
+            await File.WriteAllTextAsync(path, sb.ToString());
+            Console.WriteLine($"exported to {path}");
+        }, exportMdArg);
+
         // conversation-insert already added above
 
         // open-state
@@ -1620,6 +1721,15 @@ public static class AdditionalCommands
         openStateCmd.SetHandler(async () =>
         {
             var psi = new ProcessStartInfo(Program.StatePath) { UseShellExecute = true };
+            Process.Start(psi);
+            await Task.CompletedTask;
+        });
+
+        var openStateDirCmd = new Command("open-state-dir", "Open directory containing state.json");
+        openStateDirCmd.SetHandler(async () =>
+        {
+            var dir = Path.GetDirectoryName(Program.StatePath) ?? ".";
+            var psi = new ProcessStartInfo(dir) { UseShellExecute = true };
             Process.Start(psi);
             await Task.CompletedTask;
         });
@@ -2060,11 +2170,17 @@ public static class AdditionalCommands
         root.Add(searchMemoryRegexCmd);
         root.Add(memoryFreqCmd);
         root.Add(tasksByCreatedCmd);
+        root.Add(tasksOldestCmd);
+        root.Add(tasksPriorityCountCmd);
         root.Add(resetTasksCmd);
         root.Add(exportTasksCsvCmd);
         root.Add(importTasksCsvCmd);
+        root.Add(exportTasksTextCmd);
+        root.Add(importTasksTextCmd);
+        root.Add(exportTasksMdCmd);
         root.Add(convInsertCmd);
         root.Add(openStateCmd);
+        root.Add(openStateDirCmd);
         root.Add(taskSummaryCmd);
         root.Add(deleteByStatusCmd);
         root.Add(listMemFilesCmd);
@@ -2127,6 +2243,7 @@ public static class AdditionalCommands
         root.Add(showLog);
         root.Add(clearLog);
         root.Add(searchTasks);
+        root.Add(searchTasksRegexCmd);
         root.Add(taskHistory);
         root.Add(dedupeConv);
         root.Add(exportSection);

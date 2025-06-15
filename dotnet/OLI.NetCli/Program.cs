@@ -16,6 +16,7 @@ using static JsonUtils;
 using static MemoryUtils;
 using static LogUtils;
 using static KernelUtils;
+using static HistoryCommands;
 
 class Program
 {
@@ -23,6 +24,7 @@ class Program
     public static readonly string TasksPath = Path.Combine(AppContext.BaseDirectory, "tasks.json");
     public static readonly string ConversationPath = Path.Combine(AppContext.BaseDirectory, "conversation.json");
     public static readonly string SummariesPath = Path.Combine(AppContext.BaseDirectory, "summaries.json");
+    public static readonly string HistoryPath = Path.Combine(AppContext.BaseDirectory, "history.jsonl");
     public static readonly string ToolsPath = Path.Combine(AppContext.BaseDirectory, "tools.json");
     public static readonly string MemoryPath = Path.Combine(AppContext.BaseDirectory, "oli.md");
     public static readonly string LspPath = Path.Combine(AppContext.BaseDirectory, "lsp.json");
@@ -114,12 +116,15 @@ class Program
 
     public static void SaveState(AppState state)
     {
+        var oldConv = LoadConversation();
         File.WriteAllText(StatePath, JsonSerializer.Serialize(state, new JsonSerializerOptions { WriteIndented = true }));
         SaveTasks(state.Tasks);
         SaveConversation(state.Conversation);
         SaveSummaries(state.ConversationSummaries);
         SaveTools(state.ToolExecutions);
         SaveLspServers(state.LspServers);
+        if (state.Conversation.Count > oldConv.Count)
+            HistoryCommands.AppendHistory(state.Conversation.Skip(oldConv.Count));
     }
 
     static int Main(string[] args)
@@ -916,6 +921,27 @@ class Program
             await Task.CompletedTask;
         }, rpcNotifyFileOpt, rpcNotifyFileTypeOpt);
 
+        var rpcStreamCmd = new Command("rpc-stream-events", "Stream events from RPC server");
+        var rpcTypeOpt2 = new Option<string>("--type", () => string.Empty);
+        rpcStreamCmd.AddOption(rpcTypeOpt2);
+        rpcStreamCmd.SetHandler(async (string type) =>
+        {
+            using var client = new HttpClient();
+            var url = "http://localhost:5050/stream" + (string.IsNullOrEmpty(type) ? "" : $"?type={type}");
+            try
+            {
+                using var stream = await client.GetStreamAsync(url);
+                using var reader = new StreamReader(stream);
+                while (!reader.EndOfStream)
+                {
+                    var line = await reader.ReadLineAsync();
+                    if (line != null && line.StartsWith("data:"))
+                        Console.WriteLine(line.Substring(5).Trim());
+                }
+            }
+            catch (Exception ex) { Console.WriteLine($"error: {ex.Message}"); }
+        }, rpcTypeOpt2);
+
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -933,7 +959,8 @@ class Program
             rpcStopCmd,
             rpcStatusCmd,
             rpcNotifyCmd,
-            rpcNotifyFileCmd
+            rpcNotifyFileCmd,
+            rpcStreamCmd
         };
 
         LspCommands.Register(root);
@@ -950,6 +977,7 @@ class Program
         YamlCommands.Register(root);
         ApiKeyCommands.Register(root);
         NetworkCommands.Register(root);
+        HistoryCommands.Register(root);
         LogCommands.Register(root);
         PathCommands.Register(root);
 

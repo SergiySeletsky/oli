@@ -101,5 +101,53 @@ public static class LogCommands
         root.Add(searchRegexCmd);
         root.Add(tailLogCmd);
         root.Add(trimLogCmd);
+
+        // compress-log
+        var compressCmd = new Command("compress-log", "Compress log to gz file");
+        var compOutOpt = new Option<string>("--out", () => "app.log.gz");
+        compressCmd.AddOption(compOutOpt);
+        compressCmd.SetHandler((string outPath) =>
+        {
+            if (!File.Exists(LogPath)) { Console.WriteLine("no log"); return Task.CompletedTask; }
+            using var fs = new FileStream(LogPath, FileMode.Open, FileAccess.Read);
+            using var outFs = new FileStream(outPath, FileMode.Create, FileAccess.Write);
+            using var gz = new System.IO.Compression.GZipStream(outFs, System.IO.Compression.CompressionLevel.Optimal);
+            fs.CopyTo(gz);
+            Console.WriteLine($"compressed to {outPath}");
+            return Task.CompletedTask;
+        }, compOutOpt);
+
+        // split-log
+        var splitLinesOpt = new Option<int>("--lines", () => 10000);
+        var splitCmd = new Command("split-log", "Split log into numbered files") { splitLinesOpt };
+        splitCmd.SetHandler((int lines) =>
+        {
+            if (!File.Exists(LogPath)) { Console.WriteLine("no log"); return Task.CompletedTask; }
+            var all = File.ReadAllLines(LogPath);
+            int file = 0;
+            for (int i = 0; i < all.Length; i += lines)
+            {
+                var chunk = all.Skip(i).Take(lines);
+                var path = Path.Combine(Path.GetDirectoryName(LogPath)!, $"app-{file}.log");
+                File.WriteAllLines(path, chunk);
+                Console.WriteLine(path);
+                file++;
+            }
+            return Task.CompletedTask;
+        }, splitLinesOpt);
+
+        var exportJsonCmd = new Command("export-log-json", "Export log as JSON array") { new Option<string>("--out", () => "app.log.json") };
+        exportJsonCmd.SetHandler((string outPath) =>
+        {
+            if (!File.Exists(LogPath)) { Console.WriteLine("no log"); return Task.CompletedTask; }
+            var lines = File.ReadAllLines(LogPath);
+            File.WriteAllText(outPath, System.Text.Json.JsonSerializer.Serialize(lines));
+            Console.WriteLine($"exported to {outPath}");
+            return Task.CompletedTask;
+        }, exportJsonCmd.Options.OfType<Option<string>>().First());
+
+        root.Add(compressCmd);
+        root.Add(splitCmd);
+        root.Add(exportJsonCmd);
     }
 }

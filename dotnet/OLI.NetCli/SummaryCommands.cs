@@ -216,6 +216,25 @@ public static class SummaryCommands
             await Task.CompletedTask;
         });
 
+        var summaryOldestCmd = new Command("summary-oldest", "Show the oldest summary");
+        summaryOldestCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.ConversationSummaries.Count == 0) { Console.WriteLine("none"); await Task.CompletedTask; return; }
+            var oldest = state.ConversationSummaries.OrderBy(s => s.CreatedAt).First();
+            Console.WriteLine(oldest.Content);
+            await Task.CompletedTask;
+        });
+
+        var summaryTotalCharsCmd = new Command("summary-total-chars", "Total characters across summaries");
+        summaryTotalCharsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            int total = state.ConversationSummaries.Sum(s => s.Content.Length);
+            Console.WriteLine(total);
+            await Task.CompletedTask;
+        });
+
         var exportSumIndexArg = new Argument<int>("index");
         var exportSumPathArg = new Argument<string>("path");
         var exportSummaryMdCmd = new Command("export-summary-md", "Export summary to markdown") { exportSumIndexArg, exportSumPathArg };
@@ -296,6 +315,8 @@ public static class SummaryCommands
         root.Add(summaryAgeCmd);
         root.Add(summaryRangeCmd);
         root.Add(summaryAvgLenCmd);
+        root.Add(summaryOldestCmd);
+        root.Add(summaryTotalCharsCmd);
         root.Add(exportSummaryMdCmd);
         root.Add(importSummaryMdCmd);
         root.Add(exportSummariesCsvCmd);

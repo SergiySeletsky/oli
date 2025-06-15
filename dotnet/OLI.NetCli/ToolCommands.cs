@@ -111,6 +111,16 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var clearCompletedCmd = new Command("clear-completed-tools", "Remove tools that have finished");
+        clearCompletedCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            state.ToolExecutions.RemoveAll(t => t.Status != "running");
+            Program.SaveState(state);
+            Console.WriteLine("cleared");
+            return Task.CompletedTask;
+        });
+
         var listToolsCmd = new Command("list-tools", "List tool executions");
         listToolsCmd.SetHandler(async () =>
         {
@@ -162,6 +172,14 @@ public static class ToolCommands
             int success = state.ToolExecutions.Count(t => t.Status == "success");
             double rate = success * 100.0 / state.ToolExecutions.Count;
             Console.WriteLine(rate.ToString("F2"));
+            await Task.CompletedTask;
+        });
+
+        var toolErrorCountCmd = new Command("tool-error-count", "Number of tools that failed");
+        toolErrorCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Count(t => t.Status == "failed"));
             await Task.CompletedTask;
         });
 
@@ -290,6 +308,14 @@ public static class ToolCommands
             var state = Program.LoadState();
             foreach (var t in state.ToolExecutions) Console.WriteLine(t.Id);
             await Task.CompletedTask;
+        });
+
+        var listToolNamesCmd = new Command("list-tool-names", "List distinct tool names");
+        listToolNamesCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            foreach (var n in state.ToolExecutions.Select(t => t.Name).Distinct()) Console.WriteLine(n);
+            return Task.CompletedTask;
         });
 
         var toolExistsCmd = new Command("tool-exists", "Check if tool id exists") { toolIdOpt };
@@ -426,6 +452,7 @@ public static class ToolCommands
         root.AddCommand(toolCountCmd);
         root.AddCommand(toolFailureCountCmd);
         root.AddCommand(toolSuccessRateCmd);
+        root.AddCommand(toolErrorCountCmd);
         root.AddCommand(runningToolsCmd);
         root.AddCommand(toolProgressCmd);
         root.AddCommand(toolProgressAllCmd);
@@ -444,6 +471,8 @@ public static class ToolCommands
         root.AddCommand(importRunCmd);
         root.AddCommand(clearToolsCmd);
         root.AddCommand(listToolsByTaskCmd);
+        root.AddCommand(clearCompletedCmd);
+        root.AddCommand(listToolNamesCmd);
         root.AddCommand(deleteToolCmd);
         root.AddCommand(setToolMetaCmd);
         root.AddCommand(exportToolsCmd);
