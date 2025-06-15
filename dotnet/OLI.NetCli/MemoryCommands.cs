@@ -135,6 +135,37 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, memTailLinesOpt);
 
+        // memory-char-count
+        var memoryCharCountCmd = new Command("memory-char-count", "Total characters in memory file");
+        memoryCharCountCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("0"); return; }
+            var text = await File.ReadAllTextAsync(Program.MemoryPath);
+            Console.WriteLine(text.Length);
+        });
+
+        // memory-average-line-length
+        var memoryAvgLineCmd = new Command("memory-average-line-length", "Average line length in memory");
+        memoryAvgLineCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("0"); return; }
+            var lines = await File.ReadAllLinesAsync(Program.MemoryPath);
+            if (lines.Length == 0) { Console.WriteLine("0"); return; }
+            var avg = lines.Average(l => l.Length);
+            Console.WriteLine(avg.ToString("F2"));
+        });
+
+        // memory-sha1
+        var memorySha1Cmd = new Command("memory-sha1", "SHA1 of memory file");
+        memorySha1Cmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("none"); return; }
+            using var sha1 = SHA1.Create();
+            var bytes = await File.ReadAllBytesAsync(Program.MemoryPath);
+            var hash = sha1.ComputeHash(bytes);
+            Console.WriteLine(Convert.ToHexString(hash).ToLower());
+        });
+
         // memory-preview
         var previewLineArg = new Argument<int>("line");
         var previewContextOpt = new Option<int>("--context", () => 2);
@@ -541,6 +572,9 @@ public static class MemoryCommands
         root.AddCommand(memoryLinesCmd);
         root.AddCommand(memoryHeadCmd);
         root.AddCommand(memoryTailCmd);
+        root.AddCommand(memoryCharCountCmd);
+        root.AddCommand(memoryAvgLineCmd);
+        root.AddCommand(memorySha1Cmd);
         root.AddCommand(memoryPreviewCmd);
         root.AddCommand(memoryContainsCmd);
         root.AddCommand(insertMemoryCmd);

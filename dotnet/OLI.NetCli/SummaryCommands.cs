@@ -206,6 +206,16 @@ public static class SummaryCommands
             await Task.CompletedTask;
         }, rangeStartArg, rangeEndArg);
 
+        var summaryAvgLenCmd = new Command("summary-average-length", "Average summary length in characters");
+        summaryAvgLenCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.ConversationSummaries.Count == 0) { Console.WriteLine("0"); await Task.CompletedTask; return; }
+            var avg = state.ConversationSummaries.Average(s => s.Content.Length);
+            Console.WriteLine(avg.ToString("F0"));
+            await Task.CompletedTask;
+        });
+
         var exportSumIndexArg = new Argument<int>("index");
         var exportSumPathArg = new Argument<string>("path");
         var exportSummaryMdCmd = new Command("export-summary-md", "Export summary to markdown") { exportSumIndexArg, exportSumPathArg };
@@ -285,6 +295,7 @@ public static class SummaryCommands
         root.Add(summaryCountCmd);
         root.Add(summaryAgeCmd);
         root.Add(summaryRangeCmd);
+        root.Add(summaryAvgLenCmd);
         root.Add(exportSummaryMdCmd);
         root.Add(importSummaryMdCmd);
         root.Add(exportSummariesCsvCmd);

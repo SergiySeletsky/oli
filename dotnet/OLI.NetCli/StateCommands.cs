@@ -18,6 +18,14 @@ public static class StateCommands
             await Task.CompletedTask;
         });
 
+        var stateUpdatedCmd = new Command("state-last-updated", "Show state file modification time");
+        stateUpdatedCmd.SetHandler(async () => {
+            if (!File.Exists(Program.StatePath)) { Console.WriteLine("none"); return; }
+            var time = File.GetLastWriteTimeUtc(Program.StatePath);
+            Console.WriteLine(time.ToString("u"));
+            await Task.CompletedTask;
+        });
+
         var stateVersionCmd = new Command("state-version", "Show state file version");
         stateVersionCmd.SetHandler(async () => {
             var state = Program.LoadState();
@@ -118,6 +126,7 @@ public static class StateCommands
         root.AddCommand(stateVersionCmd);
         root.AddCommand(stateSummaryCmd);
         root.AddCommand(stateFilesCmd);
+        root.AddCommand(stateUpdatedCmd);
         root.AddCommand(setWorkingDirCmd);
         root.AddCommand(currentDirCmd);
         root.AddCommand(setAutoCompressCmd);

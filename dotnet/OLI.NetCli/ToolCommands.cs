@@ -194,6 +194,19 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var totalDurationCmd = new Command("tool-total-duration", "Sum of all tool run times");
+        totalDurationCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            double sum = 0;
+            foreach (var t in state.ToolExecutions)
+            {
+                if (t.EndTime != null) sum += (t.EndTime.Value - t.StartTime).TotalSeconds;
+            }
+            Console.WriteLine(sum.ToString("F0"));
+            await Task.CompletedTask;
+        });
+
         var listToolsByTaskCmd = new Command("list-tools-by-task", "List tools for a task") { startToolTaskOpt };
         listToolsByTaskCmd.SetHandler(async (string taskId) =>
         {
@@ -424,6 +437,7 @@ public static class ToolCommands
         root.AddCommand(toolAgeCmd);
         root.AddCommand(toolsRecentCmd);
         root.AddCommand(runningToolCountCmd);
+        root.AddCommand(totalDurationCmd);
         root.AddCommand(toolsByNameCmd);
         root.AddCommand(toolCountByNameCmd);
         root.AddCommand(exportRunCmd);

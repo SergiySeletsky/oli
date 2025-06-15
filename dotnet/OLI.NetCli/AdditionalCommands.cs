@@ -554,6 +554,15 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        var overdueCountCmd = new Command("tasks-overdue-count", "Count overdue tasks");
+        overdueCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            int count = state.Tasks.Count(t => t.DueDate != null && t.DueDate < DateTime.UtcNow && t.Status != "completed");
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        });
+
         // tasks-due-today
         var tasksTodayCmd = new Command("tasks-due-today", "List tasks due today");
         tasksTodayCmd.SetHandler(async () =>
@@ -1878,6 +1887,36 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        var tasksCompletedPctCmd = new Command("tasks-completed-percentage", "Percent of tasks completed");
+        tasksCompletedPctCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.Tasks.Count == 0) { Console.WriteLine("0"); await Task.CompletedTask; return; }
+            double pct = state.Tasks.Count(t => t.Status == "completed") * 100.0 / state.Tasks.Count;
+            Console.WriteLine(pct.ToString("F0"));
+            await Task.CompletedTask;
+        });
+
+        var tasksAvgPriorityCmd = new Command("tasks-average-priority", "Average task priority");
+        tasksAvgPriorityCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.Tasks.Count == 0) { Console.WriteLine("0"); await Task.CompletedTask; return; }
+            var avg = state.Tasks.Average(t => t.Priority);
+            Console.WriteLine(avg.ToString("F2"));
+            await Task.CompletedTask;
+        });
+
+        var minPriorityArg = new Argument<int>("min");
+        var tasksWithPriorityCmd = new Command("tasks-with-priority", "List tasks with priority >= min") { minPriorityArg };
+        tasksWithPriorityCmd.SetHandler(async (int min) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Priority >= min))
+                Console.WriteLine($"{t.Id}: {t.Description} ({t.Priority})");
+            await Task.CompletedTask;
+        }, minPriorityArg);
+
         // add-memory-section
         var addSecNameArg = new Argument<string>("section");
         var addSecFileArg = new Argument<string>("path");
@@ -2039,6 +2078,8 @@ public static class AdditionalCommands
         root.Add(convToJsonlCmd);
         root.Add(convFromJsonlCmd);
         root.Add(memLineCountCmd);
+        root.Add(overdueCmd);
+        root.Add(overdueCountCmd);
         root.Add(tasksTodayCmd);
         root.Add(tasksNextWeekCmd);
         root.Add(tasksThisMonthCmd);
@@ -2061,6 +2102,9 @@ public static class AdditionalCommands
         root.Add(tasksWithTagsCmd);
         root.Add(tasksWithoutTagsCmd);
         root.Add(tasksAvgDurationCmd);
+        root.Add(tasksCompletedPctCmd);
+        root.Add(tasksAvgPriorityCmd);
+        root.Add(tasksWithPriorityCmd);
         root.Add(addMemSectionCmd);
         root.Add(updateMemSectionCmd);
         root.Add(convClearAfterCmd);

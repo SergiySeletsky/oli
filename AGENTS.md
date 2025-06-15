@@ -329,6 +329,9 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added `pre-commit` and `dotnet` tooling to the environment.
 - Implemented `run-command` and additional LSP commands for hover, completion, references, rename,
   signature help, formatting, code actions, folding ranges, diagnostics, and opening server roots.
+- Added analytics helpers `memory-char-count`, `memory-average-line-length`, `memory-sha1`,
+  `tasks-overdue-count`, `tasks-completed-percentage`, `tasks-average-priority`, `tasks-with-priority`,
+  `state-last-updated`, `tool-total-duration`, and `summary-average-length`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
