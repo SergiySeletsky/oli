@@ -43,7 +43,7 @@ public static class YamlCommands
         {
             if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
             var lines = YamlUtils.Read<List<string>>(path);
-            File.WriteAllLines(Program.MemoryPath, lines ?? Array.Empty<string>());
+            File.WriteAllLines(Program.MemoryPath, lines?.ToArray() ?? Array.Empty<string>());
             Console.WriteLine("loaded");
             await Task.CompletedTask;
         }, yamlArg);

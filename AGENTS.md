@@ -314,10 +314,17 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Expanded LSP management with `lsp-stop-all`, `lsp-update-root`, `lsp-language-stats`, `lsp-open-root`, `export-lsp-csv`, `import-lsp-csv`, and `lsp-set-language`.
 - Added YAML helpers `conversation-to-yaml`, `conversation-from-yaml`, `memory-to-yaml`, `memory-from-yaml`, `tasks-to-yaml`, `tasks-from-yaml`, `lsp-to-yaml`, `lsp-from-yaml`, `export-state-yaml`, and `import-state-yaml`.
 
+### Latest Run
+- Installed the .NET 8 SDK in the container so the CLI can build.
+- Fixed build errors in `ConversationCommands.cs` and `YamlCommands.cs`.
+- Verified `dotnet build` succeeds.
+- Confirmed `cargo test` passes with all features.
+
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
+- Ensure `dotnet build` and `cargo test` continue to pass after future changes.
 - Expand RPC server capabilities with richer event payloads and persistent subscriptions.
 - Continue porting LSP-based code intelligence features.
 - Improve task filtering options and start integrating conversation summaries with LLM APIs.
