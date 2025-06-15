@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.IO.Compression;
 
 public static class ConversationCommands
 {
@@ -213,6 +214,31 @@ public static class ConversationCommands
             Console.WriteLine(summary);
         });
 
+        var compressConvFileCmd = new Command("compress-conversation-file", "Gzip conversation.json") { new Option<string>("--out", () => "conversation.json.gz") };
+        compressConvFileCmd.SetHandler((string outPath) =>
+        {
+            if (!File.Exists(Program.ConversationPath)) { Console.WriteLine("no conversation file"); return Task.CompletedTask; }
+            using var fs = new FileStream(Program.ConversationPath, FileMode.Open, FileAccess.Read);
+            using var outFs = new FileStream(outPath, FileMode.Create, FileAccess.Write);
+            using var gz = new GZipStream(outFs, CompressionLevel.Optimal);
+            fs.CopyTo(gz);
+            Console.WriteLine($"compressed to {outPath}");
+            return Task.CompletedTask;
+        }, compressConvFileCmd.Options.OfType<Option<string>>().First());
+
+        var decompressConvFileCmd = new Command("decompress-conversation-file", "Unzip conversation gzip to file") { new Option<string>("--path") { IsRequired = true } };
+        decompressConvFileCmd.SetHandler((string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return Task.CompletedTask; }
+            var dest = Program.ConversationPath;
+            using var fs = new FileStream(path, FileMode.Open, FileAccess.Read);
+            using var gz = new GZipStream(fs, CompressionMode.Decompress);
+            using var outFs = new FileStream(dest, FileMode.Create, FileAccess.Write);
+            gz.CopyTo(outFs);
+            Console.WriteLine($"decompressed to {dest}");
+            return Task.CompletedTask;
+        }, decompressConvFileCmd.Options.OfType<Option<string>>().First());
+
         // clear-history
         var clearHistory = new Command("clear-history", "Remove conversation and summaries");
         clearHistory.SetHandler(() =>
@@ -238,6 +264,8 @@ public static class ConversationCommands
         root.Add(convChar);
         root.Add(convWords);
         root.Add(compressConv);
+        root.Add(compressConvFileCmd);
+        root.Add(decompressConvFileCmd);
         root.Add(clearHistory);
 
         // conversation-exists

@@ -332,9 +332,13 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added analytics helpers `memory-char-count`, `memory-average-line-length`, `memory-sha1`,
   `tasks-overdue-count`, `tasks-completed-percentage`, `tasks-average-priority`, `tasks-with-priority`,
   `state-last-updated`, `tool-total-duration`, and `summary-average-length`.
- - Implemented new commands `compress-log`, `split-log`, `export-conversation-text`,
-   `export-tasks-text`, `import-tasks-text`, `export-tasks-md`, `search-tasks-regex`,
-   `list-tool-names`, `clear-completed-tools`, and `rpc-stream-events`.
+- Implemented new commands `compress-log`, `split-log`, `export-conversation-text`,
+  `export-tasks-text`, `import-tasks-text`, `export-tasks-md`, `search-tasks-regex`,
+  `list-tool-names`, `clear-completed-tools`, and `rpc-stream-events`.
+- Added conversation search regex, summary helpers `summary-oldest` and `summary-total-chars`,
+  tool analytics `tool-error-count`, log export via `export-log-json`, path helper `open-state-dir`,
+  task utilities `tasks-oldest` and `tasks-priority-count`, and conversation file compression
+  commands `compress-conversation-file` and `decompress-conversation-file`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.

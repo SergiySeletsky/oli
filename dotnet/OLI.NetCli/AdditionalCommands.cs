@@ -1415,6 +1415,19 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, convSearchArg);
 
+        // conversation-search-regex
+        var convRegexArg = new Argument<string>("pattern");
+        var conversationSearchRegexCmd = new Command("conversation-search-regex", "Regex search conversation") { convRegexArg };
+        conversationSearchRegexCmd.SetHandler(async (string pattern) =>
+        {
+            var state = Program.LoadState();
+            var regex = new Regex(pattern, RegexOptions.IgnoreCase);
+            foreach (var (line, idx) in state.Conversation.Select((l,i)=>(l,i)))
+                if (regex.IsMatch(line))
+                    Console.WriteLine($"{idx}: {line}");
+            await Task.CompletedTask;
+        }, convRegexArg);
+
         // list-conversation
         var listConversationCmd = new Command("list-conversation", "List conversation with indexes");
         listConversationCmd.SetHandler(async () =>
@@ -1565,6 +1578,25 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        var tasksOldestCmd = new Command("tasks-oldest", "Show oldest active task id");
+        tasksOldestCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var task = state.Tasks.Where(t => t.Status != "completed" && t.Status != "archived")
+                .OrderBy(t => t.CreatedAt).FirstOrDefault();
+            Console.WriteLine(task != null ? task.Id : "none");
+            await Task.CompletedTask;
+        });
+
+        var tasksPriorityCountCmd = new Command("tasks-priority-count", "Count tasks by priority");
+        tasksPriorityCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var groups = state.Tasks.GroupBy(t => t.Priority).OrderBy(g => g.Key);
+            foreach (var g in groups) Console.WriteLine($"{g.Key}:{g.Count()}");
+            await Task.CompletedTask;
+        });
+
         // reset-tasks
         var resetTasksCmd = new Command("reset-tasks", "Clear tasks and reset current task");
         resetTasksCmd.SetHandler(async () =>
@@ -1689,6 +1721,15 @@ public static class AdditionalCommands
         openStateCmd.SetHandler(async () =>
         {
             var psi = new ProcessStartInfo(Program.StatePath) { UseShellExecute = true };
+            Process.Start(psi);
+            await Task.CompletedTask;
+        });
+
+        var openStateDirCmd = new Command("open-state-dir", "Open directory containing state.json");
+        openStateDirCmd.SetHandler(async () =>
+        {
+            var dir = Path.GetDirectoryName(Program.StatePath) ?? ".";
+            var psi = new ProcessStartInfo(dir) { UseShellExecute = true };
             Process.Start(psi);
             await Task.CompletedTask;
         });
@@ -2129,6 +2170,8 @@ public static class AdditionalCommands
         root.Add(searchMemoryRegexCmd);
         root.Add(memoryFreqCmd);
         root.Add(tasksByCreatedCmd);
+        root.Add(tasksOldestCmd);
+        root.Add(tasksPriorityCountCmd);
         root.Add(resetTasksCmd);
         root.Add(exportTasksCsvCmd);
         root.Add(importTasksCsvCmd);
@@ -2137,6 +2180,7 @@ public static class AdditionalCommands
         root.Add(exportTasksMdCmd);
         root.Add(convInsertCmd);
         root.Add(openStateCmd);
+        root.Add(openStateDirCmd);
         root.Add(taskSummaryCmd);
         root.Add(deleteByStatusCmd);
         root.Add(listMemFilesCmd);

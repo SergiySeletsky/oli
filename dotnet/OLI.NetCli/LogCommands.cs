@@ -136,7 +136,18 @@ public static class LogCommands
             return Task.CompletedTask;
         }, splitLinesOpt);
 
+        var exportJsonCmd = new Command("export-log-json", "Export log as JSON array") { new Option<string>("--out", () => "app.log.json") };
+        exportJsonCmd.SetHandler((string outPath) =>
+        {
+            if (!File.Exists(LogPath)) { Console.WriteLine("no log"); return Task.CompletedTask; }
+            var lines = File.ReadAllLines(LogPath);
+            File.WriteAllText(outPath, System.Text.Json.JsonSerializer.Serialize(lines));
+            Console.WriteLine($"exported to {outPath}");
+            return Task.CompletedTask;
+        }, exportJsonCmd.Options.OfType<Option<string>>().First());
+
         root.Add(compressCmd);
         root.Add(splitCmd);
+        root.Add(exportJsonCmd);
     }
 }

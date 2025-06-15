@@ -175,6 +175,14 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var toolErrorCountCmd = new Command("tool-error-count", "Number of tools that failed");
+        toolErrorCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.ToolExecutions.Count(t => t.Status == "failed"));
+            await Task.CompletedTask;
+        });
+
         var runningToolsCmd = new Command("running-tools", "List running tools");
         runningToolsCmd.SetHandler(async () =>
         {
@@ -444,6 +452,7 @@ public static class ToolCommands
         root.AddCommand(toolCountCmd);
         root.AddCommand(toolFailureCountCmd);
         root.AddCommand(toolSuccessRateCmd);
+        root.AddCommand(toolErrorCountCmd);
         root.AddCommand(runningToolsCmd);
         root.AddCommand(toolProgressCmd);
         root.AddCommand(toolProgressAllCmd);
