@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.0.1" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageReference Include="DiffPlex" Version="1.7.0" />
+    <PackageReference Include="YamlDotNet" Version="13.2.1" />
   </ItemGroup>
 
 </Project>

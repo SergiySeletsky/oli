@@ -947,6 +947,7 @@ class Program
         FileCommands.Register(root);
         SummaryCommands.Register(root);
         JsonCommands.Register(root);
+        YamlCommands.Register(root);
         ApiKeyCommands.Register(root);
         NetworkCommands.Register(root);
         LogCommands.Register(root);

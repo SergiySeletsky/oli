@@ -34,7 +34,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 3. Integrate LLM capabilities using packages like [AutoGen.NET](https://github.com/microsoft/autogen) or [Semantic Kernel](https://github.com/microsoft/semantic-kernel).
 4. Achieve feature parity with the Rust CLI before deprecating it.
 5. Migrate features incrementally, implementing at least ten per agent run and recording progress here.
-6. Track ported files: `Program.cs`, `ConversationSummary.cs`, `ToolExecution.cs`, and `LspCommands.cs` are largely complete. New helper modules `ApiKeyCommands.cs`, `NetworkCommands.cs`, `LogCommands.cs`, and `PathCommands.cs` house additional commands.
+6. Track ported files: `Program.cs`, `ConversationSummary.cs`, `ToolExecution.cs`, and `LspCommands.cs` are largely complete. New helper modules `ApiKeyCommands.cs`, `NetworkCommands.cs`, `LogCommands.cs`, `PathCommands.cs`, and `YamlCommands.cs` house additional commands.
 
 ### Accomplished
 - Created the `dotnet/OLI.NetCli` project with `run`, `agent-mode`, and `models` commands.
@@ -312,6 +312,7 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added conversation utilities `conversation-first-n`, `conversation-shuffle`, `conversation-to-json`, and `conversation-from-json`.
 - Added task helpers `tasks-notes-count`, `tasks-by-note`, and `tasks-with-tags`.
 - Expanded LSP management with `lsp-stop-all`, `lsp-update-root`, `lsp-language-stats`, `lsp-open-root`, `export-lsp-csv`, `import-lsp-csv`, and `lsp-set-language`.
+- Added YAML helpers `conversation-to-yaml`, `conversation-from-yaml`, `memory-to-yaml`, `memory-from-yaml`, `tasks-to-yaml`, `tasks-from-yaml`, `lsp-to-yaml`, `lsp-from-yaml`, `export-state-yaml`, and `import-state-yaml`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.
