@@ -339,9 +339,12 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
   tool analytics `tool-error-count`, log export via `export-log-json`, path helper `open-state-dir`,
   task utilities `tasks-oldest` and `tasks-priority-count`, and conversation file compression
   commands `compress-conversation-file` and `decompress-conversation-file`.
+- Implemented conversation history persistence with `history.jsonl` and added commands
+  `history-path`, `history-exists`, `history-count`, `show-history`, `delete-history`,
+  `export-history`, `import-history`, `archive-history`, `compress-history`, and `decompress-history`.
 
 ### TODO for Next Run
-- Persist conversation history and implement tool integrations similar to the Rust backend.
+ - Implement tool integrations similar to the Rust backend.
 - Add unit tests and CI for the .NET CLI.
 - Continue updating this section with progress and next steps.
 - Ensure `dotnet build` and `cargo test` continue to pass after future changes.
