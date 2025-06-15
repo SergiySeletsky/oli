@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.IO;
 using System.Linq;
 using System.Collections.Generic;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 public static class MemoryCommands
@@ -83,6 +84,25 @@ public static class MemoryCommands
             Console.WriteLine($"Memory file exported to {path}");
             await Task.CompletedTask;
         }, exportMemoryPathOpt);
+
+        var memHtmlArg = new Argument<string>("path");
+        var memoryToHtmlCmd = new Command("memory-to-html", "Export memory to HTML") { memHtmlArg };
+        memoryToHtmlCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var html = "<pre>" + System.Net.WebUtility.HtmlEncode(File.ReadAllText(Program.MemoryPath)) + "</pre>";
+            await File.WriteAllTextAsync(path, html);
+            Console.WriteLine($"exported to {path}");
+        }, memHtmlArg);
+
+        var memoryFromHtmlCmd = new Command("memory-from-html", "Import memory from HTML") { memHtmlArg };
+        memoryFromHtmlCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var text = System.Text.RegularExpressions.Regex.Replace(File.ReadAllText(path), "<[^>]+>", string.Empty);
+            await File.WriteAllTextAsync(Program.MemoryPath, System.Net.WebUtility.HtmlDecode(text));
+            Console.WriteLine("imported");
+        }, memHtmlArg);
 
         // memory-lines
         var linesStartOpt = new Option<int>("--start", () => 1);
@@ -455,6 +475,16 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, diffArg);
 
+        var memoryHashCmd = new Command("memory-hash", "Show SHA256 of memory file");
+        memoryHashCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("none"); return; }
+            using var sha = SHA256.Create();
+            var bytes = await File.ReadAllBytesAsync(Program.MemoryPath);
+            var hash = sha.ComputeHash(bytes);
+            Console.WriteLine(Convert.ToHexString(hash).ToLower());
+        });
+
         // delete-memory-section
         var deleteSectionOption = new Option<string>("--section") { IsRequired = true };
         var deleteMemorySectionCmd = new Command("delete-memory-section", "Remove a memory section") { deleteSectionOption };
@@ -506,6 +536,8 @@ public static class MemoryCommands
         root.AddCommand(appendMemoryCmd);
         root.AddCommand(importMemoryCmd);
         root.AddCommand(exportMemoryCmd);
+        root.AddCommand(memoryToHtmlCmd);
+        root.AddCommand(memoryFromHtmlCmd);
         root.AddCommand(memoryLinesCmd);
         root.AddCommand(memoryHeadCmd);
         root.AddCommand(memoryTailCmd);
@@ -532,6 +564,7 @@ public static class MemoryCommands
         root.AddCommand(deleteMemoryLineCmd);
         root.AddCommand(memoryDedupeCmd);
         root.AddCommand(memoryDiffCmd);
+        root.AddCommand(memoryHashCmd);
         root.AddCommand(deleteMemorySectionCmd);
         root.AddCommand(listMemorySectionsCmd);
         root.AddCommand(sectionNamesCmd);

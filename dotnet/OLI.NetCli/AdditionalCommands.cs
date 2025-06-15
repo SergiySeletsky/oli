@@ -8,6 +8,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
 using static KernelUtils;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -303,6 +304,42 @@ public static class AdditionalCommands
                 .Distinct()
                 .Count();
             Console.WriteLine(unique);
+            await Task.CompletedTask;
+        });
+
+        var convHashCmd = new Command("conversation-hash", "SHA256 of conversation");
+        convHashCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            using var sha = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(string.Join("\n", state.Conversation));
+            var hash = sha.ComputeHash(bytes);
+            Console.WriteLine(Convert.ToHexString(hash).ToLower());
+            await Task.CompletedTask;
+        });
+
+        var roleCountCmd = new Command("conversation-role-count", "Count messages by role");
+        roleCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var groups = state.Conversation
+                .Select(l => l.StartsWith("[user]") || l.StartsWith("User:") ? "user" :
+                              l.StartsWith("[assistant]") || l.StartsWith("Assistant:") ? "assistant" :
+                              l.StartsWith("[system]") || l.StartsWith("System:") ? "system" : "other")
+                .GroupBy(r => r);
+            foreach (var g in groups) Console.WriteLine($"{g.Key}:{g.Count()}");
+            await Task.CompletedTask;
+        });
+
+        var sentimentCmd = new Command("conversation-sentiment", "Rough sentiment score");
+        sentimentCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var text = string.Join(" ", state.Conversation).ToLowerInvariant();
+            string[] pos = ["good","great","excellent","happy","love","like"];
+            string[] neg = ["bad","terrible","sad","hate","error","fail"];
+            int score = pos.Count(w => text.Contains(w)) - neg.Count(w => text.Contains(w));
+            Console.WriteLine(score);
             await Task.CompletedTask;
         });
 
@@ -1915,6 +1952,9 @@ public static class AdditionalCommands
         root.Add(summarizeStateCmd);
         root.Add(conversationWordFreqCmd);
         root.Add(conversationUniqueCmd);
+        root.Add(convHashCmd);
+        root.Add(roleCountCmd);
+        root.Add(sentimentCmd);
         root.Add(logPathCmd);
         root.Add(searchLogCmd);
         root.Add(exportLogCmd);
