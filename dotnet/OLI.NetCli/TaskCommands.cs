@@ -347,6 +347,33 @@ public static class TaskCommands
             await Task.CompletedTask;
         });
 
+        // tasks-older-than
+        var olderDaysOpt = new Option<int>("--days", () => 30);
+        var tasksOlderCmd = new Command("tasks-older-than", "List tasks older than N days") { olderDaysOpt };
+        tasksOlderCmd.SetHandler(async (int days) =>
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-days);
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.CreatedAt < cutoff))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, olderDaysOpt);
+
+        // cleanup-tasks
+        var cleanDaysOpt = new Option<int>("--days", () => 30);
+        var cleanStatusOpt = new Option<string>("--status", () => "completed");
+        var cleanupTasksCmd = new Command("cleanup-tasks", "Remove tasks by status older than N days") { cleanDaysOpt, cleanStatusOpt };
+        cleanupTasksCmd.SetHandler(async (int days, string status) =>
+        {
+            var cutoff = DateTime.UtcNow.AddDays(-days);
+            var state = Program.LoadState();
+            int before = state.Tasks.Count;
+            state.Tasks.RemoveAll(t => t.Status == status && t.UpdatedAt < cutoff);
+            Program.SaveState(state);
+            Console.WriteLine(before - state.Tasks.Count);
+            await Task.CompletedTask;
+        }, cleanDaysOpt, cleanStatusOpt);
+
         var updateDescIdOpt = new Option<string>("--id") { IsRequired = true };
         var updateDescOpt = new Option<string>("--description") { IsRequired = true };
         var updateTaskDescCmd = new Command("update-task-desc", "Update task description")
@@ -652,6 +679,8 @@ public static class TaskCommands
         root.AddCommand(tasksOverviewCmd);
         root.AddCommand(tasksTodayCmd);
         root.AddCommand(tasksWeekCmd);
+        root.AddCommand(tasksOlderCmd);
+        root.AddCommand(cleanupTasksCmd);
         root.AddCommand(deleteTaskCmd);
         root.AddCommand(taskInfoCmd);
         root.AddCommand(latestTaskCmd);

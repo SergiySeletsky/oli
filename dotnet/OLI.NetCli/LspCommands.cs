@@ -90,6 +90,19 @@ public static class LspCommands
             await Task.CompletedTask;
         }, importLspArg);
 
+        var infoIdArg = new Argument<string>("id");
+        var lspInfoCmd = new Command("lsp-info", "Show details for an LSP server") { infoIdArg };
+        lspInfoCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var info = state.LspServers.FirstOrDefault(s => s.Id == id);
+            if (info != null)
+                Console.WriteLine($"{info.Id}: {info.Language} {info.RootPath}");
+            else
+                Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, infoIdArg);
+
         var lspCountCmd = new Command("lsp-count", "Show number of LSP servers");
         lspCountCmd.SetHandler(async () =>
         {
@@ -107,6 +120,7 @@ public static class LspCommands
         root.Add(lspListCmd);
         root.Add(exportLspCmd);
         root.Add(importLspCmd);
+        root.Add(lspInfoCmd);
         root.Add(lspCountCmd);
         root.Add(lspPathCmd);
     }

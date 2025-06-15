@@ -286,11 +286,57 @@ public static class ConversationCommands
             }
         }, convCsvArg);
 
+        // conversation-from-csv
+        var fromCsvArg = new Argument<string>("path");
+        var conversationFromCsvCmd = new Command("conversation-from-csv", "Import conversation from CSV") { fromCsvArg };
+        conversationFromCsvCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path).Skip(1);
+            var list = new List<string>();
+            foreach (var line in lines)
+            {
+                var parts = line.Split(',');
+                if (parts.Length < 2) continue;
+                var role = parts[0].Trim();
+                var content = string.Join(',', parts.Skip(1)).Trim();
+                string prefix = role switch
+                {
+                    "user" => "User: ",
+                    "assistant" => "Assistant: ",
+                    "system" => "System: ",
+                    _ => string.Empty
+                };
+                list.Add($"{prefix}{content}");
+            }
+            var state = Program.LoadState();
+            state.Conversation = list;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, fromCsvArg);
+
+        // conversation-average-length
+        var convAvgCmd = new Command("conversation-average-length", "Average message length");
+        convAvgCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            if (state.Conversation.Count == 0) Console.WriteLine("0");
+            else
+            {
+                var avg = state.Conversation.Average(m => m.Length);
+                Console.WriteLine(avg.ToString("F2"));
+            }
+            return Task.CompletedTask;
+        });
+
         root.Add(conversationExistsCmd);
         root.Add(conversationHasCmd);
         root.Add(removeEmptyConvCmd);
         root.Add(conversationLastNCmd);
         root.Add(conversationToCsvCmd);
+        root.Add(conversationFromCsvCmd);
+        root.Add(convAvgCmd);
     }
 
     static string EscapeCsv(string s)

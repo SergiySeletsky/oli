@@ -115,6 +115,31 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, memTailLinesOpt);
 
+        // memory-preview
+        var previewLineArg = new Argument<int>("line");
+        var previewContextOpt = new Option<int>("--context", () => 2);
+        var memoryPreviewCmd = new Command("memory-preview", "Show lines around index") { previewLineArg, previewContextOpt };
+        memoryPreviewCmd.SetHandler(async (int line, int context) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file found"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            int start = Math.Max(1, line - context);
+            int end = Math.Min(lines.Length, line + context);
+            for (int i = start; i <= end; i++) Console.WriteLine($"{i}: {lines[i-1]}");
+            await Task.CompletedTask;
+        }, previewLineArg, previewContextOpt);
+
+        // memory-contains
+        var containsArg = new Argument<string>("text");
+        var memoryContainsCmd = new Command("memory-contains", "Check if memory contains text") { containsArg };
+        memoryContainsCmd.SetHandler((string text) =>
+        {
+            bool found = File.Exists(Program.MemoryPath) &&
+                         File.ReadLines(Program.MemoryPath).Any(l => l.Contains(text, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine(found ? "true" : "false");
+            return Task.CompletedTask;
+        }, containsArg);
+
         // insert-memory-lines
         var insertIndexOpt = new Option<int>("--index") { IsRequired = true };
         var insertTextOpt = new Option<string>("--text") { IsRequired = true };
@@ -484,6 +509,8 @@ public static class MemoryCommands
         root.AddCommand(memoryLinesCmd);
         root.AddCommand(memoryHeadCmd);
         root.AddCommand(memoryTailCmd);
+        root.AddCommand(memoryPreviewCmd);
+        root.AddCommand(memoryContainsCmd);
         root.AddCommand(insertMemoryCmd);
         root.AddCommand(replaceMemoryLinesCmd);
         root.AddCommand(mergeMemoryCmd);

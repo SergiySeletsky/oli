@@ -744,6 +744,40 @@ public static class AdditionalCommands
             }
         });
 
+        // rpc-event-count
+        var rpcEventCountCmd = new Command("rpc-event-count", "Number of pending RPC events");
+        rpcEventCountCmd.SetHandler(async () =>
+        {
+            using var client = new HttpClient();
+            try
+            {
+                var json = await client.GetStringAsync("http://localhost:5050/events");
+                var events = JsonSerializer.Deserialize<List<object>>(json);
+                Console.WriteLine(events?.Count ?? 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        });
+
+        // rpc-clear-events
+        var rpcClearCmd = new Command("rpc-clear-events", "Clear pending RPC events");
+        rpcClearCmd.SetHandler(async () =>
+        {
+            using var client = new HttpClient();
+            try
+            {
+                var json = await client.GetStringAsync("http://localhost:5050/events");
+                var events = JsonSerializer.Deserialize<List<object>>(json);
+                Console.WriteLine($"cleared {events?.Count ?? 0}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+            }
+        });
+
         // set-log-level
         var levelArg = new Argument<string>("level");
         var setLog = new Command("set-log-level", "Set log verbosity") { levelArg };
@@ -1866,6 +1900,8 @@ public static class AdditionalCommands
         root.Add(reopenTask);
         root.Add(convToHtml);
         root.Add(rpcEvents);
+        root.Add(rpcEventCountCmd);
+        root.Add(rpcClearCmd);
         root.Add(setLog);
         root.Add(showLog);
         root.Add(clearLog);

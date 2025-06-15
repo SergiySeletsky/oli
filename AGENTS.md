@@ -299,6 +299,12 @@ This repository is migrating the original Rust-based CLI to a .NET implementatio
 - Added task filters `tasks-without-notes` and average duration via `tasks-average-duration`.
 - Added tool analytics command `tool-failure-count`.
 - Added summary CSV helpers `export-summaries-csv` and `import-summaries-csv`.
+- Added conversation utilities `conversation-average-length` and `conversation-from-csv`.
+- Added RPC helpers `rpc-event-count` and `rpc-clear-events`.
+- Added LSP server inspection via `lsp-info`.
+- Implemented task cleanup with `cleanup-tasks` and listing via `tasks-older-than`.
+- Added memory helpers `memory-preview` and `memory-contains`.
+- Added tool metric `tool-success-rate`.
 
 ### TODO for Next Run
 - Persist conversation history and implement tool integrations similar to the Rust backend.

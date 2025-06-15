@@ -154,6 +154,17 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var toolSuccessRateCmd = new Command("tool-success-rate", "Percentage of successful tool runs");
+        toolSuccessRateCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.ToolExecutions.Count == 0) { Console.WriteLine("0"); return; }
+            int success = state.ToolExecutions.Count(t => t.Status == "success");
+            double rate = success * 100.0 / state.ToolExecutions.Count;
+            Console.WriteLine(rate.ToString("F2"));
+            await Task.CompletedTask;
+        });
+
         var runningToolsCmd = new Command("running-tools", "List running tools");
         runningToolsCmd.SetHandler(async () =>
         {
@@ -401,6 +412,7 @@ public static class ToolCommands
         root.AddCommand(toolInfoCmd);
         root.AddCommand(toolCountCmd);
         root.AddCommand(toolFailureCountCmd);
+        root.AddCommand(toolSuccessRateCmd);
         root.AddCommand(runningToolsCmd);
         root.AddCommand(toolProgressCmd);
         root.AddCommand(toolProgressAllCmd);
