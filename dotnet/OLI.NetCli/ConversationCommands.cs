@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 public static class ConversationCommands
 {
@@ -330,6 +331,56 @@ public static class ConversationCommands
             return Task.CompletedTask;
         });
 
+        // conversation-first-n
+        var firstNArg = new Argument<int>("count");
+        var conversationFirstNCmd = new Command("conversation-first-n", "Show first N messages") { firstNArg };
+        conversationFirstNCmd.SetHandler((int count) =>
+        {
+            var state = Program.LoadState();
+            foreach (var line in state.Conversation.Take(count)) Console.WriteLine(line);
+            return Task.CompletedTask;
+        }, firstNArg);
+
+        // conversation-shuffle
+        var conversationShuffleCmd = new Command("conversation-shuffle", "Randomize conversation order");
+        conversationShuffleCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            var rnd = new Random();
+            state.Conversation = state.Conversation.OrderBy(_ => rnd.Next()).ToList();
+            Program.SaveState(state);
+            Console.WriteLine("shuffled");
+            return Task.CompletedTask;
+        });
+
+        // conversation-to-json
+        var convJsonArg = new Argument<string>("path");
+        var conversationToJsonCmd = new Command("conversation-to-json", "Export conversation as JSON array") { convJsonArg };
+        conversationToJsonCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var json = JsonSerializer.Serialize(state.Conversation, new JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(path, json);
+        }, convJsonArg);
+
+        // conversation-from-json
+        var fromJsonArg = new Argument<string>("path");
+        var conversationFromJsonCmd = new Command("conversation-from-json", "Load conversation from JSON array") { fromJsonArg };
+        conversationFromJsonCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = await File.ReadAllTextAsync(path);
+            var list = JsonSerializer.Deserialize<List<string>>(json);
+            if (list != null)
+            {
+                var state = Program.LoadState();
+                state.Conversation = list;
+                Program.SaveState(state);
+                Console.WriteLine("loaded");
+            }
+            else Console.WriteLine("invalid file");
+        }, fromJsonArg);
+
         root.Add(conversationExistsCmd);
         root.Add(conversationHasCmd);
         root.Add(removeEmptyConvCmd);
@@ -337,6 +388,10 @@ public static class ConversationCommands
         root.Add(conversationToCsvCmd);
         root.Add(conversationFromCsvCmd);
         root.Add(convAvgCmd);
+        root.Add(conversationFirstNCmd);
+        root.Add(conversationShuffleCmd);
+        root.Add(conversationToJsonCmd);
+        root.Add(conversationFromJsonCmd);
     }
 
     static string EscapeCsv(string s)

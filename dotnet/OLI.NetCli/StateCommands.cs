@@ -18,6 +18,14 @@ public static class StateCommands
             await Task.CompletedTask;
         });
 
+        var stateUpdatedCmd = new Command("state-last-updated", "Show state file modification time");
+        stateUpdatedCmd.SetHandler(async () => {
+            if (!File.Exists(Program.StatePath)) { Console.WriteLine("none"); return; }
+            var time = File.GetLastWriteTimeUtc(Program.StatePath);
+            Console.WriteLine(time.ToString("u"));
+            await Task.CompletedTask;
+        });
+
         var stateVersionCmd = new Command("state-version", "Show state file version");
         stateVersionCmd.SetHandler(async () => {
             var state = Program.LoadState();
@@ -60,6 +68,28 @@ public static class StateCommands
             await Task.CompletedTask;
         });
 
+        var autoCompressOpt = new Option<bool>("--enable") { IsRequired = true };
+        var setAutoCompressCmd = new Command("set-auto-compress", "Enable or disable automatic conversation compression") { autoCompressOpt };
+        setAutoCompressCmd.SetHandler(async (bool enable) => {
+            var state = Program.LoadState();
+            state.AutoCompress = enable;
+            Program.SaveState(state);
+            Console.WriteLine($"Auto-compress set to {enable}");
+            await Task.CompletedTask;
+        }, autoCompressOpt);
+
+        var charThreshOpt = new Option<int>("--chars") { IsRequired = true };
+        var msgThreshOpt = new Option<int>("--messages") { IsRequired = true };
+        var setCompressThresholdsCmd = new Command("set-compress-thresholds", "Set auto compression thresholds") { charThreshOpt, msgThreshOpt };
+        setCompressThresholdsCmd.SetHandler(async (int chars, int messages) => {
+            var state = Program.LoadState();
+            state.CompressCharThreshold = chars;
+            state.CompressMessageThreshold = messages;
+            Program.SaveState(state);
+            Console.WriteLine($"Thresholds set chars:{chars} messages:{messages}");
+            await Task.CompletedTask;
+        }, charThreshOpt, msgThreshOpt);
+
         var exportStateOpt = new Option<string>("--path") { IsRequired = true };
         var exportStateCmd = new Command("export-state", "Save state to file") { exportStateOpt };
         exportStateCmd.SetHandler(async (string path) => {
@@ -96,8 +126,11 @@ public static class StateCommands
         root.AddCommand(stateVersionCmd);
         root.AddCommand(stateSummaryCmd);
         root.AddCommand(stateFilesCmd);
+        root.AddCommand(stateUpdatedCmd);
         root.AddCommand(setWorkingDirCmd);
         root.AddCommand(currentDirCmd);
+        root.AddCommand(setAutoCompressCmd);
+        root.AddCommand(setCompressThresholdsCmd);
         root.AddCommand(exportStateCmd);
         root.AddCommand(importStateCmd);
         root.AddCommand(resetStateCmd);

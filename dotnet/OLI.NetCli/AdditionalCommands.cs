@@ -8,6 +8,7 @@ using System.Text;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
 using static KernelUtils;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -306,6 +307,42 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        var convHashCmd = new Command("conversation-hash", "SHA256 of conversation");
+        convHashCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            using var sha = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(string.Join("\n", state.Conversation));
+            var hash = sha.ComputeHash(bytes);
+            Console.WriteLine(Convert.ToHexString(hash).ToLower());
+            await Task.CompletedTask;
+        });
+
+        var roleCountCmd = new Command("conversation-role-count", "Count messages by role");
+        roleCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var groups = state.Conversation
+                .Select(l => l.StartsWith("[user]") || l.StartsWith("User:") ? "user" :
+                              l.StartsWith("[assistant]") || l.StartsWith("Assistant:") ? "assistant" :
+                              l.StartsWith("[system]") || l.StartsWith("System:") ? "system" : "other")
+                .GroupBy(r => r);
+            foreach (var g in groups) Console.WriteLine($"{g.Key}:{g.Count()}");
+            await Task.CompletedTask;
+        });
+
+        var sentimentCmd = new Command("conversation-sentiment", "Rough sentiment score");
+        sentimentCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            var text = string.Join(" ", state.Conversation).ToLowerInvariant();
+            string[] pos = ["good","great","excellent","happy","love","like"];
+            string[] neg = ["bad","terrible","sad","hate","error","fail"];
+            int score = pos.Count(w => text.Contains(w)) - neg.Count(w => text.Contains(w));
+            Console.WriteLine(score);
+            await Task.CompletedTask;
+        });
+
         // task-rename
         var idArg = new Argument<string>("id");
         var descArg = new Argument<string>("description");
@@ -514,6 +551,15 @@ public static class AdditionalCommands
             var state = Program.LoadState();
             foreach (var t in state.Tasks.Where(t => t.DueDate != null && t.DueDate < DateTime.UtcNow))
                 Console.WriteLine($"{t.Id}: {t.Description} due {t.DueDate:u}");
+            await Task.CompletedTask;
+        });
+
+        var overdueCountCmd = new Command("tasks-overdue-count", "Count overdue tasks");
+        overdueCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            int count = state.Tasks.Count(t => t.DueDate != null && t.DueDate < DateTime.UtcNow && t.Status != "completed");
+            Console.WriteLine(count);
             await Task.CompletedTask;
         });
 
@@ -778,6 +824,44 @@ public static class AdditionalCommands
             }
         });
 
+        var exportSubsArg = new Argument<string>("path");
+        var exportSubsCmd = new Command("export-subscriptions", "Export subscriptions to JSON") { exportSubsArg };
+        exportSubsCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state.Subscriptions, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"exported to {path}");
+            await Task.CompletedTask;
+        }, exportSubsArg);
+
+        var importSubsArg = new Argument<string>("path");
+        var importSubsCmd = new Command("import-subscriptions", "Load subscriptions from JSON") { importSubsArg };
+        importSubsCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = File.ReadAllText(path);
+            var subs = JsonSerializer.Deserialize<HashSet<string>>(json);
+            if (subs != null)
+            {
+                var state = Program.LoadState();
+                state.Subscriptions = subs;
+                Program.SaveState(state);
+                Console.WriteLine("imported");
+            }
+            else Console.WriteLine("invalid file");
+            await Task.CompletedTask;
+        }, importSubsArg);
+
+        var clearSubsCmd = new Command("clear-subscriptions", "Remove all subscriptions");
+        clearSubsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            state.Subscriptions.Clear();
+            Program.SaveState(state);
+            Console.WriteLine("cleared");
+            await Task.CompletedTask;
+        });
+
         // set-log-level
         var levelArg = new Argument<string>("level");
         var setLog = new Command("set-log-level", "Set log verbosity") { levelArg };
@@ -929,6 +1013,27 @@ public static class AdditionalCommands
             Console.WriteLine($"exported to {path}");
             await Task.CompletedTask;
         }, outLogArg);
+
+        // run-command
+        var cmdArg = new Argument<string>("cmd");
+        var runCommand = new Command("run-command", "Execute shell command") { cmdArg };
+        runCommand.SetHandler(async (string cmd) =>
+        {
+            var psi = new ProcessStartInfo("/bin/sh", "-c")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false
+            };
+            psi.ArgumentList.Add(cmd);
+            var proc = Process.Start(psi);
+            if (proc == null) { Console.WriteLine("failed to start"); return; }
+            string stdout = await proc.StandardOutput.ReadToEndAsync();
+            string stderr = await proc.StandardError.ReadToEndAsync();
+            proc.WaitForExit();
+            Console.Write(stdout);
+            if (!string.IsNullOrEmpty(stderr)) Console.Error.WriteLine(stderr);
+        }, cmdArg);
 
         // backup-state
         var backupStateCmd = new Command("backup-state", "Backup state file");
@@ -1246,6 +1351,44 @@ public static class AdditionalCommands
             Console.WriteLine(state.Conversation.Count);
             await Task.CompletedTask;
         });
+
+        var conversationMaxIndexCmd = new Command("conversation-max-index", "Show last conversation index");
+        conversationMaxIndexCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Conversation.Count > 0 ? state.Conversation.Count - 1 : -1);
+            return Task.CompletedTask;
+        });
+
+        var swapFirstArg = new Argument<int>("first");
+        var swapSecondArg = new Argument<int>("second");
+        var conversationSwapCmd = new Command("conversation-swap", "Swap two messages") { swapFirstArg, swapSecondArg };
+        conversationSwapCmd.SetHandler((int first, int second) =>
+        {
+            var state = Program.LoadState();
+            if (first < 0 || first >= state.Conversation.Count || second < 0 || second >= state.Conversation.Count)
+            {
+                Console.WriteLine("invalid index");
+                return Task.CompletedTask;
+            }
+            (state.Conversation[first], state.Conversation[second]) = (state.Conversation[second], state.Conversation[first]);
+            Program.SaveState(state);
+            Console.WriteLine("swapped");
+            return Task.CompletedTask;
+        }, swapFirstArg, swapSecondArg);
+
+        var mergePathArg = new Argument<string>("path");
+        var conversationMergeCmd = new Command("conversation-merge", "Append messages from file") { mergePathArg };
+        conversationMergeCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var state = Program.LoadState();
+            state.Conversation.AddRange(lines);
+            Program.SaveState(state);
+            Console.WriteLine("merged");
+            await Task.CompletedTask;
+        }, mergePathArg);
 
         // conversation-search
         var convSearchArg = new Argument<string>("text");
@@ -1672,6 +1815,26 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         });
 
+        // tasks-notes-count
+        var tasksNotesCountCmd = new Command("tasks-notes-count", "Count tasks with notes");
+        tasksNotesCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Tasks.Count(t => !string.IsNullOrWhiteSpace(t.Notes)));
+            await Task.CompletedTask;
+        });
+
+        // tasks-by-note
+        var noteQueryArg = new Argument<string>("text");
+        var tasksByNoteCmd = new Command("tasks-by-note", "List tasks with notes containing text") { noteQueryArg };
+        tasksByNoteCmd.SetHandler(async (string text) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Notes != null && t.Notes.Contains(text, StringComparison.OrdinalIgnoreCase)))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        }, noteQueryArg);
+
         // tasks-without-due
         var tasksWithoutDueCmd = new Command("tasks-without-due", "List tasks missing due date");
         tasksWithoutDueCmd.SetHandler(async () =>
@@ -1688,6 +1851,16 @@ public static class AdditionalCommands
         {
             var state = Program.LoadState();
             foreach (var t in state.Tasks.Where(t => t.Tags.Count == 0))
+                Console.WriteLine($"{t.Id}: {t.Description}");
+            await Task.CompletedTask;
+        });
+
+        // tasks-with-tags
+        var tasksWithTagsCmd = new Command("tasks-with-tags", "List tasks that have tags");
+        tasksWithTagsCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Tags.Count > 0))
                 Console.WriteLine($"{t.Id}: {t.Description}");
             await Task.CompletedTask;
         });
@@ -1713,6 +1886,36 @@ public static class AdditionalCommands
             Console.WriteLine(avg.ToString("F0"));
             await Task.CompletedTask;
         });
+
+        var tasksCompletedPctCmd = new Command("tasks-completed-percentage", "Percent of tasks completed");
+        tasksCompletedPctCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.Tasks.Count == 0) { Console.WriteLine("0"); await Task.CompletedTask; return; }
+            double pct = state.Tasks.Count(t => t.Status == "completed") * 100.0 / state.Tasks.Count;
+            Console.WriteLine(pct.ToString("F0"));
+            await Task.CompletedTask;
+        });
+
+        var tasksAvgPriorityCmd = new Command("tasks-average-priority", "Average task priority");
+        tasksAvgPriorityCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            if (state.Tasks.Count == 0) { Console.WriteLine("0"); await Task.CompletedTask; return; }
+            var avg = state.Tasks.Average(t => t.Priority);
+            Console.WriteLine(avg.ToString("F2"));
+            await Task.CompletedTask;
+        });
+
+        var minPriorityArg = new Argument<int>("min");
+        var tasksWithPriorityCmd = new Command("tasks-with-priority", "List tasks with priority >= min") { minPriorityArg };
+        tasksWithPriorityCmd.SetHandler(async (int min) =>
+        {
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks.Where(t => t.Priority >= min))
+                Console.WriteLine($"{t.Id}: {t.Description} ({t.Priority})");
+            await Task.CompletedTask;
+        }, minPriorityArg);
 
         // add-memory-section
         var addSecNameArg = new Argument<string>("section");
@@ -1809,9 +2012,13 @@ public static class AdditionalCommands
         root.Add(summarizeStateCmd);
         root.Add(conversationWordFreqCmd);
         root.Add(conversationUniqueCmd);
+        root.Add(convHashCmd);
+        root.Add(roleCountCmd);
+        root.Add(sentimentCmd);
         root.Add(logPathCmd);
         root.Add(searchLogCmd);
         root.Add(exportLogCmd);
+        root.Add(runCommand);
         root.Add(backupStateCmd);
         root.Add(restoreStateCmd);
         root.Add(backupMemoryCmd);
@@ -1871,6 +2078,8 @@ public static class AdditionalCommands
         root.Add(convToJsonlCmd);
         root.Add(convFromJsonlCmd);
         root.Add(memLineCountCmd);
+        root.Add(overdueCmd);
+        root.Add(overdueCountCmd);
         root.Add(tasksTodayCmd);
         root.Add(tasksNextWeekCmd);
         root.Add(tasksThisMonthCmd);
@@ -1886,14 +2095,23 @@ public static class AdditionalCommands
         root.Add(archivedTasksCmd);
         root.Add(listTaskIdsCmd);
         root.Add(tasksWithNotesCmd);
+        root.Add(tasksNotesCountCmd);
+        root.Add(tasksByNoteCmd);
         root.Add(tasksWithoutNotesCmd);
         root.Add(tasksWithoutDueCmd);
+        root.Add(tasksWithTagsCmd);
         root.Add(tasksWithoutTagsCmd);
         root.Add(tasksAvgDurationCmd);
+        root.Add(tasksCompletedPctCmd);
+        root.Add(tasksAvgPriorityCmd);
+        root.Add(tasksWithPriorityCmd);
         root.Add(addMemSectionCmd);
         root.Add(updateMemSectionCmd);
         root.Add(convClearAfterCmd);
         root.Add(convSliceCmd);
+        root.Add(conversationMaxIndexCmd);
+        root.Add(conversationSwapCmd);
+        root.Add(conversationMergeCmd);
         root.Add(nextTaskCmd);
         root.Add(taskRename);
         root.Add(setPriority);
@@ -1902,6 +2120,9 @@ public static class AdditionalCommands
         root.Add(rpcEvents);
         root.Add(rpcEventCountCmd);
         root.Add(rpcClearCmd);
+        root.Add(exportSubsCmd);
+        root.Add(importSubsCmd);
+        root.Add(clearSubsCmd);
         root.Add(setLog);
         root.Add(showLog);
         root.Add(clearLog);

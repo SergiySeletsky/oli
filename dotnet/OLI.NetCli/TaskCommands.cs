@@ -272,6 +272,15 @@ public static class TaskCommands
             await Task.CompletedTask;
         });
 
+        var incompleteCountCmd = new Command("tasks-incomplete-count", "Count tasks not completed");
+        incompleteCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            int count = state.Tasks.Count(t => t.Status != "completed");
+            Console.WriteLine(count);
+            await Task.CompletedTask;
+        });
+
         var clearTasksCmd = new Command("clear-tasks", "Remove all tasks");
         clearTasksCmd.SetHandler(async () =>
         {
@@ -438,6 +447,34 @@ public static class TaskCommands
             }
             await Task.CompletedTask;
         }, importTasksPathOpt);
+
+        var tasksJsonlArg = new Argument<string>("path");
+        var tasksToJsonlCmd = new Command("tasks-to-jsonl", "Export tasks to JSONL") { tasksJsonlArg };
+        tasksToJsonlCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            using var writer = new StreamWriter(path);
+            foreach (var t in state.Tasks)
+                await writer.WriteLineAsync(JsonSerializer.Serialize(t));
+            Console.WriteLine($"exported to {path}");
+        }, tasksJsonlArg);
+
+        var tasksFromJsonlCmd = new Command("tasks-from-jsonl", "Import tasks from JSONL") { tasksJsonlArg };
+        tasksFromJsonlCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var list = new List<TaskRecord>();
+            foreach (var line in File.ReadLines(path))
+            {
+                var rec = JsonSerializer.Deserialize<TaskRecord>(line);
+                if (rec != null) list.Add(rec);
+            }
+            var state = Program.LoadState();
+            state.Tasks = list;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, tasksJsonlArg);
 
         var deleteIdOption = new Option<string>("--id") { IsRequired = true };
         var deleteTaskCmd = new Command("delete-task", "Remove a task")
@@ -667,6 +704,7 @@ public static class TaskCommands
         root.AddCommand(taskAgeCmd);
         root.AddCommand(addToolUseCmd);
         root.AddCommand(taskCountCmd);
+        root.AddCommand(incompleteCountCmd);
         root.AddCommand(clearTasksCmd);
         root.AddCommand(clearCompletedCmd);
         root.AddCommand(tasksByStatusCmd);
@@ -674,6 +712,8 @@ public static class TaskCommands
         root.AddCommand(updateTaskDescCmd);
         root.AddCommand(exportTasksCmd);
         root.AddCommand(importTasksCmd);
+        root.AddCommand(tasksToJsonlCmd);
+        root.AddCommand(tasksFromJsonlCmd);
         root.AddCommand(purgeFailedCmd);
         root.AddCommand(tasksFailedCmd);
         root.AddCommand(tasksOverviewCmd);
