@@ -916,6 +916,27 @@ class Program
             await Task.CompletedTask;
         }, rpcNotifyFileOpt, rpcNotifyFileTypeOpt);
 
+        var rpcStreamCmd = new Command("rpc-stream-events", "Stream events from RPC server");
+        var rpcTypeOpt2 = new Option<string>("--type", () => string.Empty);
+        rpcStreamCmd.AddOption(rpcTypeOpt2);
+        rpcStreamCmd.SetHandler(async (string type) =>
+        {
+            using var client = new HttpClient();
+            var url = "http://localhost:5050/stream" + (string.IsNullOrEmpty(type) ? "" : $"?type={type}");
+            try
+            {
+                using var stream = await client.GetStreamAsync(url);
+                using var reader = new StreamReader(stream);
+                while (!reader.EndOfStream)
+                {
+                    var line = await reader.ReadLineAsync();
+                    if (line != null && line.StartsWith("data:"))
+                        Console.WriteLine(line.Substring(5).Trim());
+                }
+            }
+            catch (Exception ex) { Console.WriteLine($"error: {ex.Message}"); }
+        }, rpcTypeOpt2);
+
 
         var root = new RootCommand("oli .NET CLI")
         {
@@ -933,7 +954,8 @@ class Program
             rpcStopCmd,
             rpcStatusCmd,
             rpcNotifyCmd,
-            rpcNotifyFileCmd
+            rpcNotifyFileCmd,
+            rpcStreamCmd
         };
 
         LspCommands.Register(root);

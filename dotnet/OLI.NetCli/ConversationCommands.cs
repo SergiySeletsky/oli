@@ -59,6 +59,18 @@ public static class ConversationCommands
             return Task.CompletedTask;
         }, exportPathOpt);
 
+        // export-conversation-text
+        var exportTextOpt = new Option<string>("--path") { IsRequired = true };
+        var exportTextCmd = new Command("export-conversation-text", "Export conversation as plain text") { exportTextOpt };
+        exportTextCmd.SetHandler((string path) =>
+        {
+            var state = Program.LoadState();
+            var cleaned = state.Conversation.Select(l => l.Contains(']') ? l.Split(']',2)[1].Trim() : l);
+            File.WriteAllText(path, string.Join("\n", cleaned));
+            Console.WriteLine($"Conversation exported to {path}");
+            return Task.CompletedTask;
+        }, exportTextOpt);
+
         // import-conversation
         var importPathOpt = new Option<string>("--path") { IsRequired = true };
         var importConv = new Command("import-conversation", "Load conversation from file") { importPathOpt };
@@ -217,6 +229,7 @@ public static class ConversationCommands
         root.Add(conversation);
         root.Add(saveConv);
         root.Add(exportConv);
+        root.Add(exportTextCmd);
         root.Add(importConv);
         root.Add(appendConv);
         root.Add(deleteMessage);

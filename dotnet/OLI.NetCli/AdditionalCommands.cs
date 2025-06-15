@@ -903,6 +903,19 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, queryArg);
 
+        // search-tasks-regex
+        var regexTaskArg = new Argument<string>("pattern");
+        var searchTasksRegexCmd = new Command("search-tasks-regex", "Regex search task descriptions") { regexTaskArg };
+        searchTasksRegexCmd.SetHandler((string pattern) =>
+        {
+            var regex = new System.Text.RegularExpressions.Regex(pattern);
+            var state = Program.LoadState();
+            foreach (var t in state.Tasks)
+                if (regex.IsMatch(t.Description))
+                    Console.WriteLine($"{t.Id} {t.Description} ({t.Status})");
+            return Task.CompletedTask;
+        }, regexTaskArg);
+
         // task-history
         var taskHistory = new Command("task-history", "List tasks chronologically");
         taskHistory.SetHandler(async () =>
@@ -1613,6 +1626,62 @@ public static class AdditionalCommands
             await Task.CompletedTask;
         }, importCsvArg);
 
+        // export-tasks-text
+        var exportTextArg = new Argument<string>("path");
+        var exportTasksTextCmd = new Command("export-tasks-text", "Export tasks to text") { exportTextArg };
+        exportTasksTextCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var lines = state.Tasks.Select(t => $"{t.Id}: {t.Description} [{t.Status}]");
+            await File.WriteAllLinesAsync(path, lines);
+            Console.WriteLine($"exported to {path}");
+        }, exportTextArg);
+
+        // import-tasks-text
+        var importTextArg = new Argument<string>("path");
+        var importTasksTextCmd = new Command("import-tasks-text", "Load tasks from text") { importTextArg };
+        importTasksTextCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path);
+            var list = new List<TaskRecord>();
+            foreach (var line in lines)
+            {
+                var parts = line.Split(':', 2);
+                if (parts.Length < 2) continue;
+                var descPart = parts[1].Trim();
+                var statusIdx = descPart.LastIndexOf('[');
+                string status = "pending";
+                string desc = descPart;
+                if (statusIdx != -1 && descPart.EndsWith("]"))
+                {
+                    status = descPart[(statusIdx + 1)..^1];
+                    desc = descPart[..statusIdx].Trim();
+                }
+                list.Add(new TaskRecord { Id = parts[0].Trim(), Description = desc, Status = status, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+            }
+            var state = Program.LoadState();
+            state.Tasks = list;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, importTextArg);
+
+        // export-tasks-md
+        var exportMdArg = new Argument<string>("path");
+        var exportTasksMdCmd = new Command("export-tasks-md", "Export tasks to Markdown") { exportMdArg };
+        exportTasksMdCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            var sb = new StringBuilder();
+            sb.AppendLine("| Id | Description | Status |");
+            sb.AppendLine("| --- | --- | --- |");
+            foreach (var t in state.Tasks)
+                sb.AppendLine($"| {t.Id} | {t.Description.Replace("|","\\|")} | {t.Status} |");
+            await File.WriteAllTextAsync(path, sb.ToString());
+            Console.WriteLine($"exported to {path}");
+        }, exportMdArg);
+
         // conversation-insert already added above
 
         // open-state
@@ -2063,6 +2132,9 @@ public static class AdditionalCommands
         root.Add(resetTasksCmd);
         root.Add(exportTasksCsvCmd);
         root.Add(importTasksCsvCmd);
+        root.Add(exportTasksTextCmd);
+        root.Add(importTasksTextCmd);
+        root.Add(exportTasksMdCmd);
         root.Add(convInsertCmd);
         root.Add(openStateCmd);
         root.Add(taskSummaryCmd);
@@ -2127,6 +2199,7 @@ public static class AdditionalCommands
         root.Add(showLog);
         root.Add(clearLog);
         root.Add(searchTasks);
+        root.Add(searchTasksRegexCmd);
         root.Add(taskHistory);
         root.Add(dedupeConv);
         root.Add(exportSection);

@@ -111,6 +111,16 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var clearCompletedCmd = new Command("clear-completed-tools", "Remove tools that have finished");
+        clearCompletedCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            state.ToolExecutions.RemoveAll(t => t.Status != "running");
+            Program.SaveState(state);
+            Console.WriteLine("cleared");
+            return Task.CompletedTask;
+        });
+
         var listToolsCmd = new Command("list-tools", "List tool executions");
         listToolsCmd.SetHandler(async () =>
         {
@@ -292,6 +302,14 @@ public static class ToolCommands
             await Task.CompletedTask;
         });
 
+        var listToolNamesCmd = new Command("list-tool-names", "List distinct tool names");
+        listToolNamesCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            foreach (var n in state.ToolExecutions.Select(t => t.Name).Distinct()) Console.WriteLine(n);
+            return Task.CompletedTask;
+        });
+
         var toolExistsCmd = new Command("tool-exists", "Check if tool id exists") { toolIdOpt };
         toolExistsCmd.SetHandler(async (string id) =>
         {
@@ -444,6 +462,8 @@ public static class ToolCommands
         root.AddCommand(importRunCmd);
         root.AddCommand(clearToolsCmd);
         root.AddCommand(listToolsByTaskCmd);
+        root.AddCommand(clearCompletedCmd);
+        root.AddCommand(listToolNamesCmd);
         root.AddCommand(deleteToolCmd);
         root.AddCommand(setToolMetaCmd);
         root.AddCommand(exportToolsCmd);
