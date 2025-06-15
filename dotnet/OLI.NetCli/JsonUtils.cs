@@ -32,4 +32,20 @@ public static class JsonUtils
         var linesB = prettyB.Split('\n');
         return Program.GenerateDiff(string.Join('\n', linesA), string.Join('\n', linesB));
     }
+
+    public static string Merge(string pathA, string pathB)
+    {
+        using var docA = JsonDocument.Parse(File.ReadAllText(pathA));
+        using var docB = JsonDocument.Parse(File.ReadAllText(pathB));
+        var dict = new Dictionary<string, JsonElement>();
+        foreach (var p in docA.RootElement.EnumerateObject()) dict[p.Name] = p.Value;
+        foreach (var p in docB.RootElement.EnumerateObject()) dict[p.Name] = p.Value;
+        return JsonSerializer.Serialize(dict, new JsonSerializerOptions { WriteIndented = true });
+    }
+
+    public static bool IsValid(string path)
+    {
+        try { JsonDocument.Parse(File.ReadAllText(path)); return true; }
+        catch { return false; }
+    }
 }

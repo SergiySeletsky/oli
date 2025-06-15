@@ -12,4 +12,6 @@ public class TaskRecord
     public int OutputTokens { get; set; }
     public int Priority { get; set; } = 0;
     public string Notes { get; set; } = string.Empty;
+    public bool Paused { get; set; } = false;
+    public bool Archived { get; set; } = false;
 }

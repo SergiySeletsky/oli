@@ -939,6 +939,7 @@ class Program
         LspCommands.Register(root);
         TaskCommands.Register(root);
         ToolCommands.Register(root);
+        BackupCommands.Register(root);
         ConversationCommands.Register(root);
         MemoryCommands.Register(root);
         StateCommands.Register(root);

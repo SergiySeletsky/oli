@@ -115,6 +115,31 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, memTailLinesOpt);
 
+        // memory-preview
+        var previewLineArg = new Argument<int>("line");
+        var previewContextOpt = new Option<int>("--context", () => 2);
+        var memoryPreviewCmd = new Command("memory-preview", "Show lines around index") { previewLineArg, previewContextOpt };
+        memoryPreviewCmd.SetHandler(async (int line, int context) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file found"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            int start = Math.Max(1, line - context);
+            int end = Math.Min(lines.Length, line + context);
+            for (int i = start; i <= end; i++) Console.WriteLine($"{i}: {lines[i-1]}");
+            await Task.CompletedTask;
+        }, previewLineArg, previewContextOpt);
+
+        // memory-contains
+        var containsArg = new Argument<string>("text");
+        var memoryContainsCmd = new Command("memory-contains", "Check if memory contains text") { containsArg };
+        memoryContainsCmd.SetHandler((string text) =>
+        {
+            bool found = File.Exists(Program.MemoryPath) &&
+                         File.ReadLines(Program.MemoryPath).Any(l => l.Contains(text, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine(found ? "true" : "false");
+            return Task.CompletedTask;
+        }, containsArg);
+
         // insert-memory-lines
         var insertIndexOpt = new Option<int>("--index") { IsRequired = true };
         var insertTextOpt = new Option<string>("--text") { IsRequired = true };
@@ -255,6 +280,64 @@ public static class MemoryCommands
             await Task.CompletedTask;
         }, copySectionOpt, copyDestOpt);
 
+        // memory-section-lines
+        var sectionLinesOpt = new Option<string>("--section") { IsRequired = true };
+        var memorySectionLinesCmd = new Command("memory-section-lines", "Show lines for a memory section") { sectionLinesOpt };
+        memorySectionLinesCmd.SetHandler(async (string section) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            bool capture = false;
+            foreach (var line in lines)
+            {
+                if (line.StartsWith("## "))
+                {
+                    if (capture) break;
+                    capture = line[3..].Trim() == section;
+                    continue;
+                }
+                if (capture && line.StartsWith("- ")) Console.WriteLine(line[2..]);
+            }
+            await Task.CompletedTask;
+        }, sectionLinesOpt);
+
+        // rename-memory-section
+        var renameOldOpt = new Option<string>("--old") { IsRequired = true };
+        var renameNewOpt = new Option<string>("--new") { IsRequired = true };
+        var renameSectionCmd = new Command("rename-memory-section", "Rename a memory section") { renameOldOpt, renameNewOpt };
+        renameSectionCmd.SetHandler(async (string old, string @new) =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath);
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Trim() == $"## {old}")
+                {
+                    lines[i] = $"## {@new}";
+                    File.WriteAllLines(Program.MemoryPath, lines);
+                    Console.WriteLine("renamed");
+                    await Task.CompletedTask;
+                    return;
+                }
+            }
+            Console.WriteLine("section not found");
+            await Task.CompletedTask;
+        }, renameOldOpt, renameNewOpt);
+
+        // memory-sort-lines
+        var sortLinesCmd = new Command("memory-sort-lines", "Sort memory file lines alphabetically");
+        sortLinesCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("No memory file"); return; }
+            var lines = File.ReadAllLines(Program.MemoryPath)
+                .Where(l => !string.IsNullOrWhiteSpace(l))
+                .OrderBy(l => l)
+                .ToArray();
+            File.WriteAllLines(Program.MemoryPath, lines);
+            Console.WriteLine("sorted lines");
+            await Task.CompletedTask;
+        });
+
         // swap-memory-sections
         var swapAOpt = new Option<string>("--first") { IsRequired = true };
         var swapBOpt = new Option<string>("--second") { IsRequired = true };
@@ -287,6 +370,15 @@ public static class MemoryCommands
             if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("0"); return; }
             var count = File.ReadLines(Program.MemoryPath).Count(l => l.StartsWith("## "));
             Console.WriteLine(count);
+            await Task.CompletedTask;
+        });
+
+        var sectionNamesCmd = new Command("memory-section-names", "List memory section names");
+        sectionNamesCmd.SetHandler(async () =>
+        {
+            if (!File.Exists(Program.MemoryPath)) { Console.WriteLine("none"); return; }
+            foreach (var line in File.ReadLines(Program.MemoryPath))
+                if (line.StartsWith("## ")) Console.WriteLine(line[3..].Trim());
             await Task.CompletedTask;
         });
 
@@ -353,6 +445,16 @@ public static class MemoryCommands
             await Task.CompletedTask;
         });
 
+        var diffArg = new Argument<string>("path");
+        var memoryDiffCmd = new Command("memory-diff", "Diff memory file with another") { diffArg };
+        memoryDiffCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path) || !File.Exists(Program.MemoryPath)) { Console.WriteLine("file missing"); return; }
+            var diff = Program.GenerateDiff(File.ReadAllText(Program.MemoryPath), File.ReadAllText(path));
+            Console.WriteLine(diff);
+            await Task.CompletedTask;
+        }, diffArg);
+
         // delete-memory-section
         var deleteSectionOption = new Option<string>("--section") { IsRequired = true };
         var deleteMemorySectionCmd = new Command("delete-memory-section", "Remove a memory section") { deleteSectionOption };
@@ -387,6 +489,17 @@ public static class MemoryCommands
             await Task.CompletedTask;
         });
 
+        // memory-section-exists
+        var sectionExistsArg = new Argument<string>("section");
+        var sectionExistsCmd = new Command("memory-section-exists", "Check if a memory section exists") { sectionExistsArg };
+        sectionExistsCmd.SetHandler(async (string section) =>
+        {
+            bool exists = File.Exists(Program.MemoryPath) &&
+                File.ReadLines(Program.MemoryPath).Any(l => l.Trim() == $"## {section}");
+            Console.WriteLine(exists ? "true" : "false");
+            await Task.CompletedTask;
+        }, sectionExistsArg);
+
         root.AddCommand(memoryInfoCmd);
         root.AddCommand(addMemoryCmd);
         root.AddCommand(replaceMemoryCmd);
@@ -396,6 +509,8 @@ public static class MemoryCommands
         root.AddCommand(memoryLinesCmd);
         root.AddCommand(memoryHeadCmd);
         root.AddCommand(memoryTailCmd);
+        root.AddCommand(memoryPreviewCmd);
+        root.AddCommand(memoryContainsCmd);
         root.AddCommand(insertMemoryCmd);
         root.AddCommand(replaceMemoryLinesCmd);
         root.AddCommand(mergeMemoryCmd);
@@ -405,6 +520,9 @@ public static class MemoryCommands
         root.AddCommand(createMemoryCmd);
         root.AddCommand(parseMemoryCmd);
         root.AddCommand(copySectionCmd);
+        root.AddCommand(memorySectionLinesCmd);
+        root.AddCommand(renameSectionCmd);
+        root.AddCommand(sortLinesCmd);
         root.AddCommand(swapSectionCmd);
         root.AddCommand(sectionCountCmd);
         root.AddCommand(entryCountCmd);
@@ -413,7 +531,10 @@ public static class MemoryCommands
         root.AddCommand(searchMemoryCmd);
         root.AddCommand(deleteMemoryLineCmd);
         root.AddCommand(memoryDedupeCmd);
+        root.AddCommand(memoryDiffCmd);
         root.AddCommand(deleteMemorySectionCmd);
         root.AddCommand(listMemorySectionsCmd);
+        root.AddCommand(sectionNamesCmd);
+        root.AddCommand(sectionExistsCmd);
     }
 }

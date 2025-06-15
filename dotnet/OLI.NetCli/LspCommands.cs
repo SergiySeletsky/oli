@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 public static class LspCommands
 {
@@ -61,6 +62,55 @@ public static class LspCommands
             await Task.CompletedTask;
         });
 
+        var exportLspArg = new Argument<string>("path");
+        var exportLspCmd = new Command("export-lsp", "Export LSP servers to JSON") { exportLspArg };
+        exportLspCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            File.WriteAllText(path, JsonSerializer.Serialize(state.LspServers, new JsonSerializerOptions { WriteIndented = true }));
+            Console.WriteLine($"exported to {path}");
+            await Task.CompletedTask;
+        }, exportLspArg);
+
+        var importLspArg = new Argument<string>("path");
+        var importLspCmd = new Command("import-lsp", "Import LSP servers from JSON") { importLspArg };
+        importLspCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var json = File.ReadAllText(path);
+            var list = JsonSerializer.Deserialize<List<LspServerInfo>>(json);
+            if (list != null)
+            {
+                var state = Program.LoadState();
+                state.LspServers = list;
+                Program.SaveState(state);
+                Console.WriteLine("imported");
+            }
+            else Console.WriteLine("invalid file");
+            await Task.CompletedTask;
+        }, importLspArg);
+
+        var infoIdArg = new Argument<string>("id");
+        var lspInfoCmd = new Command("lsp-info", "Show details for an LSP server") { infoIdArg };
+        lspInfoCmd.SetHandler(async (string id) =>
+        {
+            var state = Program.LoadState();
+            var info = state.LspServers.FirstOrDefault(s => s.Id == id);
+            if (info != null)
+                Console.WriteLine($"{info.Id}: {info.Language} {info.RootPath}");
+            else
+                Console.WriteLine("not found");
+            await Task.CompletedTask;
+        }, infoIdArg);
+
+        var lspCountCmd = new Command("lsp-count", "Show number of LSP servers");
+        lspCountCmd.SetHandler(async () =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.LspServers.Count);
+            await Task.CompletedTask;
+        });
+
         var lspPathCmd = new Command("lsp-path", "Show path to LSP server list");
         lspPathCmd.SetHandler(() => { Console.WriteLine(Program.LspPath); });
 
@@ -68,6 +118,10 @@ public static class LspCommands
         root.Add(lspStopCmd);
         root.Add(lspRestartCmd);
         root.Add(lspListCmd);
+        root.Add(exportLspCmd);
+        root.Add(importLspCmd);
+        root.Add(lspInfoCmd);
+        root.Add(lspCountCmd);
         root.Add(lspPathCmd);
     }
 }

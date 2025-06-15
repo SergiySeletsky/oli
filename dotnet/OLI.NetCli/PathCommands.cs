@@ -40,10 +40,19 @@ public static class PathCommands
             return Task.CompletedTask;
         });
 
+        // open-tools
+        var openTools = new Command("open-tools", "Open tools.json");
+        openTools.SetHandler(() =>
+        {
+            Process.Start("xdg-open", Program.ToolsPath);
+            return Task.CompletedTask;
+        });
+
         root.Add(openTasks);
         root.Add(openConv);
         root.Add(openSums);
         root.Add(openLsp);
+        root.Add(openTools);
 
         // tasks-path
         var tasksPathCmd = new Command("tasks-path", "Show tasks file path");

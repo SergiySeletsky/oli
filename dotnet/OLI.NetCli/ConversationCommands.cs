@@ -225,5 +225,124 @@ public static class ConversationCommands
         root.Add(convWords);
         root.Add(compressConv);
         root.Add(clearHistory);
+
+        // conversation-exists
+        var conversationExistsCmd = new Command("conversation-exists", "Check if conversation has messages");
+        conversationExistsCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            Console.WriteLine(state.Conversation.Count > 0 ? "true" : "false");
+            return Task.CompletedTask;
+        });
+
+        // conversation-has
+        var hasTextArg = new Argument<string>("text");
+        var conversationHasCmd = new Command("conversation-has", "Check if conversation contains text") { hasTextArg };
+        conversationHasCmd.SetHandler((string text) =>
+        {
+            var state = Program.LoadState();
+            bool found = state.Conversation.Any(m => m.Contains(text, StringComparison.OrdinalIgnoreCase));
+            Console.WriteLine(found ? "true" : "false");
+            return Task.CompletedTask;
+        }, hasTextArg);
+
+        // remove-empty-conversation
+        var removeEmptyConvCmd = new Command("remove-empty-conversation", "Delete empty lines from conversation");
+        removeEmptyConvCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            int before = state.Conversation.Count;
+            state.Conversation = state.Conversation.Where(l => !string.IsNullOrWhiteSpace(l)).ToList();
+            Program.SaveState(state);
+            Console.WriteLine(before - state.Conversation.Count);
+            return Task.CompletedTask;
+        });
+
+        // conversation-last-n
+        var lastNArg = new Argument<int>("count");
+        var conversationLastNCmd = new Command("conversation-last-n", "Show last N messages") { lastNArg };
+        conversationLastNCmd.SetHandler((int count) =>
+        {
+            var state = Program.LoadState();
+            foreach (var line in state.Conversation.TakeLast(count)) Console.WriteLine(line);
+            return Task.CompletedTask;
+        }, lastNArg);
+
+        // conversation-to-csv
+        var convCsvArg = new Argument<string>("path");
+        var conversationToCsvCmd = new Command("conversation-to-csv", "Export conversation to CSV") { convCsvArg };
+        conversationToCsvCmd.SetHandler(async (string path) =>
+        {
+            var state = Program.LoadState();
+            using var writer = new StreamWriter(path);
+            await writer.WriteLineAsync("role,content");
+            foreach (var line in state.Conversation)
+            {
+                string role = line.StartsWith("[user]") || line.StartsWith("User:") ? "user" :
+                              line.StartsWith("[assistant]") || line.StartsWith("Assistant:") ? "assistant" :
+                              line.StartsWith("[system]") || line.StartsWith("System:") ? "system" : "unknown";
+                string content = line.Contains(']') ? line.Split(']', 2)[1].Trim() : line;
+                await writer.WriteLineAsync($"{EscapeCsv(role)},{EscapeCsv(content)}");
+            }
+        }, convCsvArg);
+
+        // conversation-from-csv
+        var fromCsvArg = new Argument<string>("path");
+        var conversationFromCsvCmd = new Command("conversation-from-csv", "Import conversation from CSV") { fromCsvArg };
+        conversationFromCsvCmd.SetHandler(async (string path) =>
+        {
+            if (!File.Exists(path)) { Console.WriteLine("file not found"); return; }
+            var lines = File.ReadAllLines(path).Skip(1);
+            var list = new List<string>();
+            foreach (var line in lines)
+            {
+                var parts = line.Split(',');
+                if (parts.Length < 2) continue;
+                var role = parts[0].Trim();
+                var content = string.Join(',', parts.Skip(1)).Trim();
+                string prefix = role switch
+                {
+                    "user" => "User: ",
+                    "assistant" => "Assistant: ",
+                    "system" => "System: ",
+                    _ => string.Empty
+                };
+                list.Add($"{prefix}{content}");
+            }
+            var state = Program.LoadState();
+            state.Conversation = list;
+            Program.SaveState(state);
+            Console.WriteLine("imported");
+            await Task.CompletedTask;
+        }, fromCsvArg);
+
+        // conversation-average-length
+        var convAvgCmd = new Command("conversation-average-length", "Average message length");
+        convAvgCmd.SetHandler(() =>
+        {
+            var state = Program.LoadState();
+            if (state.Conversation.Count == 0) Console.WriteLine("0");
+            else
+            {
+                var avg = state.Conversation.Average(m => m.Length);
+                Console.WriteLine(avg.ToString("F2"));
+            }
+            return Task.CompletedTask;
+        });
+
+        root.Add(conversationExistsCmd);
+        root.Add(conversationHasCmd);
+        root.Add(removeEmptyConvCmd);
+        root.Add(conversationLastNCmd);
+        root.Add(conversationToCsvCmd);
+        root.Add(conversationFromCsvCmd);
+        root.Add(convAvgCmd);
+    }
+
+    static string EscapeCsv(string s)
+    {
+        if (s.Contains(',') || s.Contains('"') || s.Contains('\n'))
+            return "\"" + s.Replace("\"", "\"\"") + "\"";
+        return s;
     }
 }
